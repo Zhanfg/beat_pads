@@ -1,11 +1,11 @@
 import 'package:beat_pads/services/services.dart';
 
 enum MPEpushStyleYAxisMods {
-  mpeAftertouch64('AT Pressure Center 64', Dims.two, Group.at),
-  slide64('Slide [74] Center 64', Dims.two, Group.slide),
-  pan64('Pan [10] Center 64', Dims.two, Group.pan),
-  gain64('Gain [7] Center 64', Dims.two, Group.gain),
-  none('None', Dims.one, Group.none);
+  mpeAftertouch64('触后压力 · 中心 64', Dims.two, Group.at),
+  slide64('Slide [74] · 中心 64', Dims.two, Group.slide),
+  pan64('声像 [10] · 中心 64', Dims.two, Group.pan),
+  gain64('增益 [7] · 中心 64', Dims.two, Group.gain),
+  none('无', Dims.one, Group.none);
 
   const MPEpushStyleYAxisMods(this.title, this.dimensions, this.exclusiveGroup);
   @override
