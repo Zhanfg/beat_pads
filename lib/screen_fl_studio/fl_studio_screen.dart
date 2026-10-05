@@ -42,9 +42,6 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   bool _sustain = false;
   late final PerformanceRouter _performance;
 
-  int get _channel => ref.read(channelUsableProv);
-  int get _velocity => ref.read(velocityProv);
-
   bool get _percussiveInstrument =>
       _instrument == _TouchInstrument.drums ||
       _instrument == _TouchInstrument.smartDrums ||
@@ -235,7 +232,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                   controller: scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   itemCount: _TouchInstrument.values.length + 1,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Padding(
@@ -2446,7 +2443,7 @@ class _LocalMonitorCard extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             DropdownButtonFormField<FlLocalTone>(
-              value: tone,
+              initialValue: tone,
               isExpanded: true,
               menuMaxHeight: 280,
               decoration: const InputDecoration(
@@ -2522,7 +2519,7 @@ class _SmartAssistCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<FlScale>(
-                  value: scale,
+                  initialValue: scale,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: '音阶',
@@ -2548,7 +2545,7 @@ class _SmartAssistCard extends ConsumerWidget {
               SizedBox(
                 width: 94,
                 child: DropdownButtonFormField<int>(
-                  value: root,
+                  initialValue: root,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: '根音',
@@ -2955,7 +2952,7 @@ class _MacroSliderState extends State<_MacroSlider> {
 }
 
 int _velocityFromTouch(
-  PointerDownEvent event,
+  PointerEvent event,
   int fallback,
   bool enabled,
 ) {
@@ -3284,8 +3281,8 @@ class _FpcGrid extends StatelessWidget {
   final int baseNote;
   final int velocity;
   final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
   static const List<String> _labels = [
     '底鼓', '军鼓', '拍手', '闭镲',
@@ -3341,8 +3338,8 @@ class _DrumPad extends StatefulWidget {
   final int note;
   final int velocity;
   final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
   @override
   State<_DrumPad> createState() => _DrumPadState();
@@ -3360,6 +3357,7 @@ class _DrumPadState extends State<_DrumPad> {
           widget.velocity,
           widget.touchDynamics,
         ),
+        pointerId: event.pointer,
       );
     }
     _pointers.add(event.pointer);
@@ -3368,7 +3366,7 @@ class _DrumPadState extends State<_DrumPad> {
 
   void _up(int pointer) {
     _pointers.remove(pointer);
-    if (_pointers.isEmpty) widget.onNoteOff(widget.note);
+    if (_pointers.isEmpty) widget.onNoteOff(widget.note, pointerId: pointer);
     if (mounted) setState(() {});
   }
 
