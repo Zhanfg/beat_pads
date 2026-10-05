@@ -36,6 +36,7 @@
 - 本地 Synth 从“按 MIDI note 管理声音”改为“按 (voiceId, note) 管理声音”。
 - 多轨、循环和多指同时弹同一个音高时，一个 NoteOff 不再误关其他仍在播放的同音 voice。
 - 工程回放为每个已调度音符分配独立 voice id，并完整经过 AXYP → Local Audio/MIDI 路由。
+- 标准 MIDI 1.0 没有 voice id；新增 channel+note 引用计数门，重叠同音只在首个 owner 发 NoteOn、最后一个 owner 发 NoteOff，避免外部 DAW/音源提前断音。
 
 ### Mixer 与真实性原则
 - Mixer 现在按真实 Track 显示 Mute、Solo、Volume；这些参数实际参与 Project Playback。
