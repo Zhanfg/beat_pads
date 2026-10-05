@@ -1,7 +1,7 @@
 name: beat_pads
 description: AXYP-powered mobile instrument and FL Studio companion
 publish_to: "none"
-version: 1.6.0+140
+version: 1.6.1+141
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
