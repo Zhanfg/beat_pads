@@ -53,7 +53,7 @@ class _PitchSliderEasedState extends ConsumerState<PitchSliderEased>
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Text(
-                  'Pitch',
+                  '弯音',
                   style: TextStyle(
                     fontSize: constraints.maxHeight * fontSizeFactor,
                     color: color,
