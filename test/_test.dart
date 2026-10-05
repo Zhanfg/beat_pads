@@ -5,6 +5,7 @@ import 'package:beat_pads/services/input/touch_geometry.dart';
 import 'package:beat_pads/services/protocol/axyp_event.dart';
 import 'package:beat_pads/services/session/studio_session.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('MultiTouchNoteRouter', () {
@@ -134,6 +135,97 @@ void main() {
       expect(session.clip.notes.single.velocity, 105);
       expect(session.clip.notes.single.durationMicros, greaterThan(0));
       expect(session.clip.lengthMicros, greaterThan(0));
+      session.dispose();
+    });
+  });
+
+  group('Workstation project', () {
+    test('supports multiple tracks and deterministic undo redo', () {
+      final session = StudioSession();
+      final piano = session.addTrack(
+        instrumentId: 'keyboard',
+        name: '钢琴',
+      );
+      session.addNoteToSelectedClip(
+        note: 60,
+        startMicros: 0,
+        durationMicros: 120000,
+        velocity: 96,
+      );
+      final bass = session.addTrack(
+        instrumentId: 'bass',
+        name: '贝斯',
+      );
+      session.addNoteToSelectedClip(
+        note: 36,
+        startMicros: 0,
+        durationMicros: 120000,
+        velocity: 104,
+      );
+
+      expect(session.project.tracks, hasLength(2));
+      expect(session.project.tracks.first.id, piano);
+      expect(session.project.tracks.last.id, bass);
+      expect(session.project.tracks.first.clips.single.notes.single.note, 60);
+      expect(session.project.tracks.last.clips.single.notes.single.note, 36);
+
+      session.undo();
+      expect(session.project.tracks.last.clips, isEmpty);
+      session.redo();
+      expect(session.project.tracks.last.clips.single.notes.single.note, 36);
+      session.dispose();
+    });
+
+    test('autosaves and restores the project graph', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+
+      final writer = StudioSession(storage: prefs);
+      writer.addTrack(
+        instrumentId: 'keyboard',
+        name: '主钢琴',
+      );
+      writer.addNoteToSelectedClip(
+        note: 64,
+        startMicros: 24000,
+        durationMicros: 96000,
+        velocity: 111,
+      );
+      writer.setTrackVolume(writer.selectedTrack!.id, 0.82);
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+      writer.dispose();
+
+      final reader = StudioSession(storage: prefs);
+      expect(reader.project.tracks, hasLength(1));
+      expect(reader.project.tracks.single.name, '主钢琴');
+      expect(reader.project.tracks.single.volume, closeTo(0.82, 0.001));
+      expect(reader.project.tracks.single.clips.single.notes.single.note, 64);
+      expect(
+        reader.project.tracks.single.clips.single.notes.single.velocity,
+        111,
+      );
+      reader.dispose();
+    });
+
+    test('quantize transpose and velocity edit mutate actual notes', () {
+      final session = StudioSession();
+      session.addTrack(instrumentId: 'keyboard');
+      session.addNoteToSelectedClip(
+        note: 60,
+        startMicros: 133000,
+        durationMicros: 121000,
+        velocity: 90,
+      );
+
+      session.quantizeSelectedClip(division: 16);
+      session.transposeSelectedClip(2);
+      session.changeSelectedVelocity(10);
+
+      final note = session.selectedClip!.notes.single;
+      expect(note.note, 62);
+      expect(note.velocity, 100);
+      expect(note.startMicros % 125000, 0);
+      expect(note.durationMicros % 125000, 0);
       session.dispose();
     });
   });
