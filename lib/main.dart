@@ -1,4 +1,4 @@
-import 'package:beat_pads/screen_pads_menu/_screen_pads_menu.dart';
+import 'package:beat_pads/screen_fl_studio/fl_studio_screen.dart';
 import 'package:beat_pads/screen_splash/_screen_splash.dart';
 import 'package:beat_pads/services/services.dart';
 import 'package:beat_pads/theme.dart';
@@ -47,6 +47,6 @@ class StartUp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Don't `watch` state for change. Only `read` value on startup.
-    return ref.read(splashScreenProv) ? const SplashScreen() : PadMenuScreen();
+    return ref.read(splashScreenProv) ? const SplashScreen() : const FlStudioScreen();
   }
 }
