@@ -117,7 +117,6 @@ final class StudioTrack {
     this.muted = false,
     this.solo = false,
     this.volume = 1.0,
-    this.pan = 0.0,
   });
 
   final String id;
@@ -127,7 +126,6 @@ final class StudioTrack {
   final bool muted;
   final bool solo;
   final double volume;
-  final double pan;
 
   StudioTrack copyWith({
     String? id,
@@ -137,7 +135,6 @@ final class StudioTrack {
     bool? muted,
     bool? solo,
     double? volume,
-    double? pan,
   }) {
     return StudioTrack(
       id: id ?? this.id,
@@ -147,7 +144,6 @@ final class StudioTrack {
       muted: muted ?? this.muted,
       solo: solo ?? this.solo,
       volume: volume ?? this.volume,
-      pan: pan ?? this.pan,
     );
   }
 
@@ -159,7 +155,6 @@ final class StudioTrack {
         'muted': muted,
         'solo': solo,
         'volume': volume,
-        'pan': pan,
       };
 
   static StudioTrack fromJson(Map<String, Object?> json) {
@@ -176,7 +171,6 @@ final class StudioTrack {
       muted: json['muted'] as bool? ?? false,
       solo: json['solo'] as bool? ?? false,
       volume: (json['volume'] as num? ?? 1).toDouble(),
-      pan: (json['pan'] as num? ?? 0).toDouble(),
     );
   }
 }
