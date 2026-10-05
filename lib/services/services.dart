@@ -4,6 +4,7 @@ export 'input/multi_touch_note_router.dart';
 export 'input/touch_geometry.dart';
 export 'protocol/axyp_event.dart';
 export 'protocol/performance_router.dart';
+export 'session/studio_session.dart';
 export 'state/device_connection.dart';
 export 'state/settings_fl_studio.dart';
 export 'state/settings_midi.dart';
