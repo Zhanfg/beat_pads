@@ -1307,7 +1307,7 @@ class _ArpeggiatorViewState extends State<_ArpeggiatorView> {
 
   Duration _stepDuration() {
     final ms = (60000 / widget.tempo * (4 / _rate)).round();
-    return Duration(milliseconds: ms.clamp(35, 1500));
+    return Duration(milliseconds: ms.clamp(35, 1500).toInt());
   }
 
   void _restart() {
@@ -1519,7 +1519,7 @@ class _SmartDrumsViewState extends State<_SmartDrumsView> {
   final math.Random _random = math.Random();
 
   Duration get _stepDuration => Duration(
-        milliseconds: (60000 / widget.tempo / 4).round().clamp(35, 1500),
+        milliseconds: (60000 / widget.tempo / 4).round().clamp(35, 1500).toInt(),
       );
 
   void _restart() {
@@ -1694,11 +1694,13 @@ class _SmartDrumsViewState extends State<_SmartDrumsView> {
                                     (current.dx +
                                             details.delta.dx /
                                                 math.max(1, size.width - 58))
-                                        .clamp(0.0, 1.0),
+                                        .clamp(0.0, 1.0)
+                                        .toDouble(),
                                     (current.dy +
                                             details.delta.dy /
                                                 math.max(1, size.height - 58))
-                                        .clamp(0.0, 1.0),
+                                        .clamp(0.0, 1.0)
+                                        .toDouble(),
                                   );
                                 });
                               },
@@ -1779,7 +1781,7 @@ class _BeatSequencerViewState extends State<_BeatSequencerView> {
   }
 
   Duration get _stepDuration => Duration(
-        milliseconds: (60000 / widget.tempo / 4).round().clamp(35, 1500),
+        milliseconds: (60000 / widget.tempo / 4).round().clamp(35, 1500).toInt(),
       );
 
   void _restart() {
