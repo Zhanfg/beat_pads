@@ -65,6 +65,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   _StudioWorkspace _workspace = _StudioWorkspace.instrument;
   _TouchInstrument _instrument = _TouchInstrument.keyboard;
   late final StudioSession _session;
+  late final LocalMetronome _metronome;
   int _keyboardBaseNote = 48;
   _KeyboardSwipeMode _keyboardSwipeMode = _KeyboardSwipeMode.glissando;
   int _fpcBaseNote = 36;
@@ -84,6 +85,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     _session = StudioSession(
       storage: ref.read(sharedPrefProvider).sharedPrefs,
     );
+    _metronome = LocalMetronome();
     _session.addListener(_onSessionChanged);
     ref.read(flTempoProvider.notifier).set(_session.project.tempo);
     _performance = PerformanceRouter(
@@ -100,8 +102,19 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _toggleMetronome() async {
+    if (_metronome.running) {
+      _metronome.stop();
+    } else {
+      _metronome.start(ref.read(flTempoProvider));
+    }
+    if (mounted) setState(() {});
+    await _sendMomentaryCc(114);
+  }
+
   @override
   void dispose() {
+    _metronome.dispose();
     _session.removeListener(_onSessionChanged);
     _session.dispose();
     _performance.sustain(false);
@@ -228,6 +241,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     final tempo = ref.watch(flTempoProvider);
     ref.listen<int>(flTempoProvider, (_, next) {
       if (_session.project.tempo != next) _session.setTempo(next);
+      _metronome.setTempo(next);
     });
     final localAudioEnabled = ref.watch(flLocalAudioEnabledProvider);
     final localAudioVolume = ref.watch(flLocalAudioVolumeProvider);
@@ -501,7 +515,8 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                       onPlay: _playSession,
                       onStop: _stopSession,
                       onRecord: _toggleRecord,
-                      onMetronome: () => _sendMomentaryCc(114),
+                      metronomeEnabled: _metronome.running,
+                      onMetronome: _toggleMetronome,
                       onControls: showControls,
                       onPanic: _panic,
                     ),
@@ -1971,6 +1986,7 @@ class _GarageControlBar extends StatelessWidget {
     required this.onPlay,
     required this.onStop,
     required this.onRecord,
+    required this.metronomeEnabled,
     required this.onMetronome,
     required this.onControls,
     required this.onPanic,
@@ -1986,6 +2002,7 @@ class _GarageControlBar extends StatelessWidget {
   final VoidCallback onPlay;
   final VoidCallback onStop;
   final VoidCallback onRecord;
+  final bool metronomeEnabled;
   final VoidCallback onMetronome;
   final VoidCallback onControls;
   final VoidCallback onPanic;
@@ -2041,11 +2058,20 @@ class _GarageControlBar extends StatelessWidget {
                   ),
                 ],
                 const Spacer(),
-                _BarButton(
-                  tooltip: '回到开头 · CC115',
-                  onPressed: onGoToBeginning,
-                  icon: Icons.skip_previous_rounded,
-                ),
+                if (!compact)
+                  _BarButton(
+                    tooltip: '回到开头 · CC115',
+                    onPressed: onGoToBeginning,
+                    icon: Icons.skip_previous_rounded,
+                  )
+                else
+                  _BarButton(
+                    tooltip: metronomeEnabled ? '关闭本地节拍器' : '开启本地节拍器',
+                    onPressed: onMetronome,
+                    icon: Icons.timer_outlined,
+                    foregroundColor:
+                        metronomeEnabled ? scheme.primary : null,
+                  ),
                 _BarButton(
                   tooltip: '停止 · CC112',
                   onPressed: onStop,
@@ -2064,9 +2090,11 @@ class _GarageControlBar extends StatelessWidget {
                 ),
                 if (!compact)
                   _BarButton(
-                    tooltip: '节拍器 · CC114',
+                    tooltip: metronomeEnabled ? '关闭本地节拍器 · CC114' : '开启本地节拍器 · CC114',
                     onPressed: onMetronome,
                     icon: Icons.timer_outlined,
+                    foregroundColor:
+                        metronomeEnabled ? scheme.primary : null,
                   ),
                 const Spacer(),
                 _BarButton(
