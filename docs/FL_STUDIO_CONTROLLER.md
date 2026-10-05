@@ -43,6 +43,18 @@ The FL Studio workspace intentionally reuses the existing `flutter_midi_command`
 
 The existing Midi Poly Grid workflow remains unchanged. The FL Studio screen is an additive workspace reachable from the piano icon in the main menu.
 
+## 1.5.0 独立发声与横屏交互重构
+
+- 新增低延迟本地 Audio Engine。触控乐器不连接 FL Studio 或 MIDI 设备时也能直接从手机扬声器/耳机发声。
+- 本地监听与 MIDI 是并行路径：连接 FL Studio 后可同时本机监听并发送 MIDI。
+- 本地监听默认开启，可持久保存开关、音量和温暖/明亮/脉冲/纯音 4 种基础音色。
+- 键盘/吉他/贝斯/和弦/琶音器使用复音振荡器；鼓组/智能鼓机/节拍音序器使用短包络电子打击音。
+- Sustain、Pitch Bend 与 Panic 同步作用于本地声音。
+- 横屏窗口改为 full-bleed：背景铺满摄像头/挖孔区域，实际可交互内容使用 display-cutout inset 留出安全余量。
+- Android NormalTheme 与 Flutter immersive 模式统一为透明、cutout-aware 的全屏窗口。
+- 乐器浏览器和轨道控制改为 DraggableScrollableSheet + ListView，可上拉展开、下拉收起并滚动到最后一项。
+- 音阶与根音下拉菜单增加最大高度，避免底部选项不可点击。
+
 ## 1.4.1 中文界面修复
 
 - 应用启动后默认直接进入 FL Studio Companion，不再先显示上游英文设置主页。
