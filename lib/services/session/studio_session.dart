@@ -190,7 +190,7 @@ final class StudioSession extends ChangeNotifier {
   }
 
   void setTempo(int tempo) {
-    final next = tempo.clamp(40, 240);
+    final next = tempo.clamp(40, 240).toInt();
     if (_project.tempo == next) return;
     _snapshot();
     _project = _project.copyWith(tempo: next);
@@ -226,7 +226,7 @@ final class StudioSession extends ChangeNotifier {
           velocity: pending.velocity,
           startMicros: pending.startMicros,
           durationMicros:
-              (now - pending.startMicros).clamp(1000, math.max(1000, now)),
+              (now - pending.startMicros).clamp(1000, math.max(1000, now)).toInt(),
         ),
       );
     }
@@ -283,7 +283,7 @@ final class StudioSession extends ChangeNotifier {
             velocity: pending.velocity,
             startMicros: pending.startMicros,
             durationMicros:
-                (end - pending.startMicros).clamp(1000, math.max(1000, end)),
+                (end - pending.startMicros).clamp(1000, math.max(1000, end)).toInt(),
           ),
         );
         break;
@@ -362,7 +362,7 @@ final class StudioSession extends ChangeNotifier {
       final notes = source.notes
           .map(
             (note) => note.copyWith(
-              note: (note.note + semitones).clamp(0, 127),
+              note: (note.note + semitones).clamp(0, 127).toInt(),
             ),
           )
           .toList(growable: false);
@@ -375,7 +375,7 @@ final class StudioSession extends ChangeNotifier {
       final notes = source.notes
           .map(
             (note) => note.copyWith(
-              velocity: (note.velocity + delta).clamp(1, 127),
+              velocity: (note.velocity + delta).clamp(1, 127).toInt(),
             ),
           )
           .toList(growable: false);
@@ -416,8 +416,8 @@ final class StudioSession extends ChangeNotifier {
     final notes = <RecordedNote>[
       ...source.notes,
       RecordedNote(
-        note: note.clamp(0, 127),
-        velocity: velocity.clamp(1, 127),
+        note: note.clamp(0, 127).toInt(),
+        velocity: velocity.clamp(1, 127).toInt(),
         startMicros: math.max(0, startMicros),
         durationMicros: math.max(1000, durationMicros),
       ),
@@ -449,11 +449,11 @@ final class StudioSession extends ChangeNotifier {
     final notes = [...source.notes];
     final current = notes[index];
     notes[index] = current.copyWith(
-      note: note?.clamp(0, 127),
+      note: note?.clamp(0, 127).toInt(),
       startMicros: startMicros == null ? null : math.max(0, startMicros),
       durationMicros:
           durationMicros == null ? null : math.max(1000, durationMicros),
-      velocity: velocity?.clamp(1, 127),
+      velocity: velocity?.clamp(1, 127).toInt(),
     );
     notes.sort((a, b) => a.startMicros.compareTo(b.startMicros));
     _replaceSelectedClip(_clipWithRecomputedLength(source, notes));
@@ -502,7 +502,7 @@ final class StudioSession extends ChangeNotifier {
         length = math.max(length, clip.endMicros);
         for (final note in clip.notes) {
           final velocity =
-              (note.velocity * track.volume).round().clamp(1, 127);
+              (note.velocity * track.volume).round().clamp(1, 127).toInt();
           final onAt = clip.startMicros + note.startMicros;
           final offAt = clip.startMicros + note.endMicros;
           _playbackTimers.add(
