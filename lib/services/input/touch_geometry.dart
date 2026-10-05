@@ -22,7 +22,7 @@ abstract final class TouchViewportPolicy {
     final usableWidth = (size.width - 58).clamp(1.0, double.infinity);
     final targetCell = size.height > size.width ? 70.0 : 62.0;
     final count = (usableWidth / targetCell).floor().clamp(5, totalFrets + 1);
-    return count;
+    return count.toInt();
   }
 }
 
@@ -41,7 +41,8 @@ final class FretboardGeometry {
   final int visibleFretCount;
   final double labelWidth;
 
-  double get playableWidth => (size.width - labelWidth).clamp(1.0, size.width);
+  double get playableWidth =>
+      (size.width - labelWidth).clamp(1.0, size.width).toDouble();
   double get fretWidth => playableWidth / visibleFretCount;
   double get stringHeight => size.height / stringCount;
 
