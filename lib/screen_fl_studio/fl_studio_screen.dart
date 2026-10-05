@@ -1,5 +1,6 @@
 import 'package:beat_pads/screen_midi_devices/_drawer_devices.dart';
 import 'package:beat_pads/services/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,13 +34,13 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   void _noteOn(int note, {int? velocity}) {
     NoteOnMessage(
       channel: _channel,
-      note: note.clamp(0, 127),
-      velocity: (velocity ?? _velocity).clamp(1, 127),
+      note: note.clamp(0, 127).toInt(),
+      velocity: (velocity ?? _velocity).clamp(1, 127).toInt(),
     ).send();
   }
 
   void _noteOff(int note) {
-    NoteOffMessage(channel: _channel, note: note.clamp(0, 127)).send();
+    NoteOffMessage(channel: _channel, note: note.clamp(0, 127).toInt()).send();
   }
 
   void _setPitch(double value) {
@@ -115,28 +116,27 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             final performance = _PerformanceArea(
               keyboardBaseNote: _keyboardBaseNote,
               fpcBaseNote: _fpcBaseNote,
-              channel: channel,
               velocity: velocity,
               onNoteOn: _noteOn,
               onNoteOff: _noteOff,
               onOctaveDown: () {
                 setState(() {
-                  _keyboardBaseNote = (_keyboardBaseNote - 12).clamp(0, 96);
+                  _keyboardBaseNote = (_keyboardBaseNote - 12).clamp(0, 96).toInt();
                 });
               },
               onOctaveUp: () {
                 setState(() {
-                  _keyboardBaseNote = (_keyboardBaseNote + 12).clamp(0, 96);
+                  _keyboardBaseNote = (_keyboardBaseNote + 12).clamp(0, 96).toInt();
                 });
               },
               onFpcBankDown: () {
                 setState(() {
-                  _fpcBaseNote = (_fpcBaseNote - 16).clamp(0, 111);
+                  _fpcBaseNote = (_fpcBaseNote - 16).clamp(0, 111).toInt();
                 });
               },
               onFpcBankUp: () {
                 setState(() {
-                  _fpcBaseNote = (_fpcBaseNote + 16).clamp(0, 111);
+                  _fpcBaseNote = (_fpcBaseNote + 16).clamp(0, 111).toInt();
                 });
               },
             );
@@ -161,7 +161,10 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                   children: [
                     Expanded(flex: 7, child: performance),
                     const VerticalDivider(width: 1),
-                    SizedBox(width: 300, child: controls),
+                    SizedBox(
+                      width: 300,
+                      child: SingleChildScrollView(child: controls),
+                    ),
                   ],
                 ),
               );
@@ -186,7 +189,6 @@ class _PerformanceArea extends StatelessWidget {
   const _PerformanceArea({
     required this.keyboardBaseNote,
     required this.fpcBaseNote,
-    required this.channel,
     required this.velocity,
     required this.onNoteOn,
     required this.onNoteOff,
@@ -198,7 +200,6 @@ class _PerformanceArea extends StatelessWidget {
 
   final int keyboardBaseNote;
   final int fpcBaseNote;
-  final int channel;
   final int velocity;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
@@ -312,9 +313,11 @@ class _ControlArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.all(14),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         _SectionCard(
           title: 'MIDI',
           child: Row(
@@ -422,6 +425,7 @@ class _ControlArea extends StatelessWidget {
           label: const Text('PANIC · ALL NOTES OFF'),
         ),
       ],
+      ),
     );
   }
 }
@@ -450,7 +454,7 @@ class _ChromaticKeyboard extends StatelessWidget {
       itemCount: noteCount,
       separatorBuilder: (_, __) => const SizedBox(width: 2),
       itemBuilder: (context, index) {
-        final note = (baseNote + index).clamp(0, 127);
+        final note = (baseNote + index).clamp(0, 127).toInt();
         final black = _black.contains(note % 12);
         return SizedBox(
           width: black ? 42 : 52,
@@ -571,7 +575,7 @@ class _FpcGrid extends StatelessWidget {
         crossAxisSpacing: 6,
       ),
       itemBuilder: (context, index) {
-        final note = (baseNote + index).clamp(0, 127);
+        final note = (baseNote + index).clamp(0, 127).toInt();
         return _DrumPad(
           label: _labels[index],
           note: note,
