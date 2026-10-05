@@ -43,6 +43,22 @@ The FL Studio workspace intentionally reuses the existing `flutter_midi_command`
 
 The existing Midi Poly Grid workflow remains unchanged. The FL Studio screen is an additive workspace reachable from the piano icon in the main menu.
 
+## 1.4.0 中文化与扩展乐器
+
+1.4.0 将 FL Studio Companion 工作区的主要可见界面中文化，并把触控乐器扩展到 9 类：
+
+- 键盘：真实黑白键叠层、延音、音阶锁定、压力力度。
+- 吉他：标准 E2-A2-D3-G3-B3-E4 定弦的 12 品 MIDI 指板。
+- 贝斯：标准 E1-A1-D2-G2 定弦的 12 品 MIDI 指板。
+- 鼓组：自适应鼓垫布局。
+- 智能和弦：按根音与音阶生成和弦条。
+- 琶音器：1/8、1/16、1/32，上行/下行/上下行/随机，1–4 八度。
+- 智能鼓机：二维网格中向右增加复杂度、向上增加力度，并实时生成 MIDI Groove。
+- 节拍音序器：4 行 × 16 步实时 MIDI 音序器，支持随机生成与清空。
+- 现场循环：4 轨 × 5 场景 MIDI 触发矩阵，可映射到 FL Studio Performance Mode/Clip/Scene。
+
+全局 BPM 40–240 会持久保存，并供琶音器、智能鼓机与节拍音序器共同使用。音阶库新增和声小调、旋律小调、混合利底亚、弗里吉亚、大调五声音阶和布鲁斯等模式。
+
 ## 1.3.0 Touch Instrument architecture
 
 The primary interaction model now follows a Touch Instrument workflow: choose an instrument from the browser, perform in a full-screen play area, use the top control bar for transport, and open Track Controls only when deeper parameters are needed.
