@@ -92,8 +92,8 @@ final class LocalSynth {
   }) async {
     await ensureReady();
 
-    final note = midiNote.clamp(0, 127);
-    final vel = velocity.clamp(1, 127);
+    final note = midiNote.clamp(0, 127).toInt();
+    final vel = velocity.clamp(1, 127).toInt();
     final source = percussive ? _drumSource : _tonalSource;
     if (source == null) return;
 
@@ -128,7 +128,7 @@ final class LocalSynth {
   }
 
   void noteOff(int midiNote) {
-    final note = midiNote.clamp(0, 127);
+    final note = midiNote.clamp(0, 127).toInt();
     if (_sustain) {
       _sustainedNotes.add(note);
       return;
