@@ -85,6 +85,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
       storage: ref.read(sharedPrefProvider).sharedPrefs,
     );
     _session.addListener(_onSessionChanged);
+    ref.read(flTempoProvider.notifier).set(_session.project.tempo);
     _performance = PerformanceRouter(
       channel: () => ref.read(channelUsableProv),
       velocity: () => ref.read(velocityProv),
@@ -168,6 +169,10 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   }
 
   Future<void> _playSession() async {
+    if (_session.playing) {
+      await _stopSession();
+      return;
+    }
     _session.playProject(
       noteOn: (track, note, velocity, voiceId) {
         final percussive = track.instrumentId == 'drums' ||
@@ -221,6 +226,9 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     final scaleLock = ref.watch(flScaleLockProvider);
     final touchDynamics = ref.watch(flTouchDynamicsProvider);
     final tempo = ref.watch(flTempoProvider);
+    ref.listen<int>(flTempoProvider, (_, next) {
+      if (_session.project.tempo != next) _session.setTempo(next);
+    });
     final localAudioEnabled = ref.watch(flLocalAudioEnabledProvider);
     final localAudioVolume = ref.watch(flLocalAudioVolumeProvider);
     final localTone = ref.watch(flLocalToneProvider);
@@ -1183,6 +1191,78 @@ class _ProjectTrackList extends StatelessWidget {
                         track.id,
                         !track.solo,
                       ),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: '轨道操作',
+                      iconSize: 18,
+                      padding: EdgeInsets.zero,
+                      onSelected: (value) async {
+                        if (value == 'delete') {
+                          session.deleteTrack(track.id);
+                          return;
+                        }
+                        if (value == 'rename') {
+                          final controller = TextEditingController(
+                            text: track.name,
+                          );
+                          final name = await showDialog<String>(
+                            context: context,
+                            builder: (dialogContext) {
+                              return AlertDialog(
+                                title: const Text('重命名轨道'),
+                                content: TextField(
+                                  controller: controller,
+                                  autofocus: true,
+                                  maxLength: 36,
+                                  onSubmitted: (value) {
+                                    final trimmed = value.trim();
+                                    if (trimmed.isNotEmpty) {
+                                      Navigator.pop(
+                                        dialogContext,
+                                        trimmed,
+                                      );
+                                    }
+                                  },
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
+                                    child: const Text('取消'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () {
+                                      final trimmed =
+                                          controller.text.trim();
+                                      if (trimmed.isNotEmpty) {
+                                        Navigator.pop(
+                                          dialogContext,
+                                          trimmed,
+                                        );
+                                      }
+                                    },
+                                    child: const Text('确定'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          controller.dispose();
+                          if (name != null) {
+                            session.renameTrack(track.id, name);
+                          }
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'rename',
+                          child: Text('重命名'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('删除轨道'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
