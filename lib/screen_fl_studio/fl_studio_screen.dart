@@ -1,6 +1,5 @@
 import 'package:beat_pads/screen_midi_devices/_drawer_devices.dart';
 import 'package:beat_pads/services/services.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
@@ -718,8 +717,8 @@ class _XyControlPadState extends ConsumerState<_XyControlPad> {
   Offset _position = const Offset(0.5, 0.5);
 
   void _update(Offset local, Size size, int xCc, int yCc) {
-    final x = (local.dx / size.width).clamp(0.0, 1.0);
-    final y = (1 - local.dy / size.height).clamp(0.0, 1.0);
+    final x = (local.dx / size.width).clamp(0.0, 1.0).toDouble();
+    final y = (1 - local.dy / size.height).clamp(0.0, 1.0).toDouble();
     setState(() => _position = Offset(x, y));
     widget.onCc(xCc, (x * 127).round());
     widget.onCc(yCc, (y * 127).round());
@@ -1007,7 +1006,7 @@ int _velocityFromTouch(
     // Many Android panels report a constant 1.0 when pressure is unavailable.
     // In that case keep the user's configured velocity instead of forcing 127.
     if (normalized > 0.01 && normalized < 0.99) {
-      return (24 + normalized * 103).round().clamp(1, 127);
+      return (24 + normalized * 103).round().clamp(1, 127).toInt();
     }
   }
   return fallback;
