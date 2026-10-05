@@ -75,6 +75,7 @@ Portrait and landscape are not scaled copies.
 
 ### External integration
 - [x] MIDI output
+- [x] safe overlapping-note ownership when AXYP voices degrade to MIDI 1.0
 - [x] FL Studio learnable transport CCs
 - [x] AXYP wire framing
 - [ ] desktop AXYP companion
