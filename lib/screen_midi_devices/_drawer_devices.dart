@@ -119,7 +119,7 @@ class MidiConfigState extends ConsumerState<MidiConfig> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Devices',
+          'MIDI 设备',
           style: Theme.of(
             context,
           ).textTheme.headlineSmall!.copyWith(color: Palette.lightPink),
@@ -183,18 +183,18 @@ class MidiConfigState extends ConsumerState<MidiConfig> {
               } else {
                 final messages = {
                   BluetoothState.unsupported:
-                      'Bluetooth is not supported on this device.',
+                      '此设备不支持蓝牙。',
                   BluetoothState.poweredOff:
-                      'Please switch on bluetooth and try again.',
-                  BluetoothState.poweredOn: 'Everything is fine.',
+                      '请打开蓝牙后重试。',
+                  BluetoothState.poweredOn: '蓝牙状态正常。',
                   BluetoothState.resetting:
-                      'Currently resetting. Try again later.',
+                      '蓝牙正在重置，请稍后重试。',
                   BluetoothState.unauthorized:
-                      'This app needs bluetooth permissions. Please open settings, find your app and assign bluetooth access rights and start your app again.',
+                      '需要蓝牙权限。请在系统设置中允许本应用使用蓝牙，然后重新打开应用。',
                   BluetoothState.unknown:
-                      'Bluetooth is not ready yet. Try again later.',
+                      '蓝牙尚未就绪，请稍后重试。',
                   BluetoothState.other:
-                      'This should never happen. Please inform the developer of your app.',
+                      '蓝牙状态异常，请重新打开应用。',
                 };
                 if (context.mounted) {
                   // ScaffoldMessenger.of(context).showSnackBar(
@@ -262,7 +262,7 @@ class MidiConfigState extends ConsumerState<MidiConfig> {
                                         height: 40,
                                         child: Center(
                                           child: Text(
-                                            'No Midi Adapter found...',
+                                            '未发现 MIDI 适配器…',
                                             style: TextStyle(
                                               color: Palette.darkGrey,
                                             ),
@@ -317,7 +317,7 @@ class MidiConfigState extends ConsumerState<MidiConfig> {
                       return Center(child: Text(snapshot.error.toString()));
                     } else {
                       return const Center(
-                        child: Text('- No Midi Devices Detected -'),
+                        child: Text('- 未检测到 MIDI 设备 -'),
                       );
                     }
                   },
