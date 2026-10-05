@@ -1,3 +1,4 @@
+export 'audio/local_metronome.dart';
 export 'audio/local_synth.dart';
 export 'constants/const_colors.dart';
 export 'input/multi_touch_note_router.dart';
