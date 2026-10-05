@@ -1,9 +1,9 @@
 typedef PointerNoteOn = void Function(
   int note, {
   int? velocity,
-  int pointerId,
+  required int pointerId,
 });
-typedef PointerNoteOff = void Function(int note, {int pointerId});
+typedef PointerNoteOff = void Function(int note, {required int pointerId});
 
 /// Pointer-id based note ownership.
 ///
