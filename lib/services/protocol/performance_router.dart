@@ -147,13 +147,14 @@ final class PerformanceRouter {
               e.note,
               e.velocity,
               percussive: e.percussive,
+              voiceId: e.pointerId,
             ),
           );
         }
         break;
       case AxypNoteOff e:
         NoteOffMessage(channel: e.channel, note: e.note).send();
-        LocalSynth.instance.noteOff(e.note);
+        LocalSynth.instance.noteOff(e.note, voiceId: e.pointerId);
         break;
       case AxypControl e:
         CCMessage(
