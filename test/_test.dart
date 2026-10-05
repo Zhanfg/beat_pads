@@ -42,6 +42,27 @@ void main() {
       expect(router.activeNotes, isEmpty);
     });
 
+    test('keeps the original voice pointer until the shared note ends', () {
+      final offPointers = <int>[];
+      final router = MultiTouchNoteRouter(
+        onNoteOn: (
+          int note, {
+          int? velocity,
+          required int pointerId,
+        }) {},
+        onNoteOff: (int note, {required int pointerId}) {
+          offPointers.add(pointerId);
+        },
+      );
+
+      router.down(31, 60);
+      router.down(42, 60);
+      router.up(31);
+      router.up(42);
+
+      expect(offPointers, <int>[31]);
+    });
+
     test('does not release a shared note until its final owner leaves', () {
       int noteOnCount = 0;
       int noteOffCount = 0;
@@ -205,6 +226,29 @@ void main() {
         111,
       );
       reader.dispose();
+    });
+
+    test('stores multiple named projects in the library', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final session = StudioSession(storage: prefs);
+
+      session.newProject(name: 'A');
+      session.addTrack(instrumentId: 'keyboard', name: '钢琴 A');
+      session.saveProjectAs('A');
+
+      session.newProject(name: 'B');
+      session.addTrack(instrumentId: 'bass', name: '贝斯 B');
+      session.saveProjectAs('B');
+
+      expect(session.savedProjectNames, <String>['A', 'B']);
+      expect(session.loadProject('A'), isTrue);
+      expect(session.project.name, 'A');
+      expect(session.project.tracks.single.name, '钢琴 A');
+
+      session.deleteSavedProject('B');
+      expect(session.savedProjectNames, <String>['A']);
+      session.dispose();
     });
 
     test('quantize transpose and velocity edit mutate actual notes', () {
