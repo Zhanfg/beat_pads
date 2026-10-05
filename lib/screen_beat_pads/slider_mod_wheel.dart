@@ -55,7 +55,7 @@ class _ModWheelState extends ConsumerState<ModWheel> {
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Text(
-                  'Mod',
+                  '调制',
                   style: TextStyle(
                     fontSize: constraints.maxHeight * fontSizeFactor,
                     color: color,
