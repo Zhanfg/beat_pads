@@ -45,35 +45,64 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   int get _channel => ref.read(channelUsableProv);
   int get _velocity => ref.read(velocityProv);
 
+  bool get _percussiveInstrument =>
+      _instrument == _TouchInstrument.drums ||
+      _instrument == _TouchInstrument.smartDrums ||
+      _instrument == _TouchInstrument.beatSequencer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(LocalSynth.instance.ensureReady());
+  }
+
   @override
   void dispose() {
     final channel = _channel;
     MidiUtils.sendSustainMessage(channel, state: false);
     MidiUtils.sendAllNotesOffMessage(channel);
     PitchBendMessage(channel: channel).send();
+    LocalSynth.instance.panic();
     super.dispose();
   }
 
   void _noteOn(int note, {int? velocity}) {
+    final safeNote = note.clamp(0, 127).toInt();
+    final safeVelocity = (velocity ?? _velocity).clamp(1, 127).toInt();
+
     NoteOnMessage(
       channel: _channel,
-      note: note.clamp(0, 127).toInt(),
-      velocity: (velocity ?? _velocity).clamp(1, 127).toInt(),
+      note: safeNote,
+      velocity: safeVelocity,
     ).send();
+
+    if (ref.read(flLocalAudioEnabledProvider)) {
+      unawaited(
+        LocalSynth.instance.noteOn(
+          safeNote,
+          safeVelocity,
+          percussive: _percussiveInstrument,
+        ),
+      );
+    }
   }
 
   void _noteOff(int note) {
-    NoteOffMessage(channel: _channel, note: note.clamp(0, 127).toInt()).send();
+    final safeNote = note.clamp(0, 127).toInt();
+    NoteOffMessage(channel: _channel, note: safeNote).send();
+    LocalSynth.instance.noteOff(safeNote);
   }
 
   void _setPitch(double value) {
     setState(() => _pitch = value);
     PitchBendMessage(channel: _channel, bend: value).send();
+    LocalSynth.instance.setPitchBend(value);
   }
 
   void _resetPitch() {
     setState(() => _pitch = 0);
     PitchBendMessage(channel: _channel).send();
+    LocalSynth.instance.setPitchBend(0);
   }
 
   void _setMod(double value) {
@@ -84,6 +113,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   void _setSustain(bool enabled) {
     setState(() => _sustain = enabled);
     MidiUtils.sendSustainMessage(_channel, state: enabled);
+    LocalSynth.instance.setSustain(enabled);
   }
 
   Future<void> _sendMomentaryCc(int controller) async {
@@ -98,6 +128,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     _setSustain(false);
     _resetPitch();
     MidiUtils.sendAllNotesOffMessage(_channel);
+    LocalSynth.instance.panic();
   }
 
   void _sendCc(int controller, int value) {
@@ -118,6 +149,17 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     final scaleLock = ref.watch(flScaleLockProvider);
     final touchDynamics = ref.watch(flTouchDynamicsProvider);
     final tempo = ref.watch(flTempoProvider);
+    final localAudioEnabled = ref.watch(flLocalAudioEnabledProvider);
+    final localAudioVolume = ref.watch(flLocalAudioVolumeProvider);
+    final localTone = ref.watch(flLocalToneProvider);
+
+    unawaited(
+      LocalSynth.instance.configure(
+        enabled: localAudioEnabled,
+        volume: localAudioVolume,
+        tone: localTone,
+      ),
+    );
 
     final scheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF4A90E2),
@@ -155,14 +197,25 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: false,
         backgroundColor: scheme.surface,
         showDragHandle: true,
         builder: (sheetContext) {
-          return SafeArea(
-            child: FractionallySizedBox(
-              heightFactor: 0.88,
-              child: SingleChildScrollView(child: controls),
-            ),
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.78,
+            minChildSize: 0.34,
+            maxChildSize: 0.96,
+            builder: (context, scrollController) {
+              return SafeArea(
+                top: false,
+                child: ListView(
+                  controller: scrollController,
+                  padding: EdgeInsets.zero,
+                  children: [controls],
+                ),
+              );
+            },
           );
         },
       );
@@ -171,23 +224,36 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     void showInstrumentBrowser() {
       showModalBottomSheet<void>(
         context: context,
+        isScrollControlled: true,
+        useSafeArea: false,
         backgroundColor: scheme.surface,
         showDragHandle: true,
         builder: (sheetContext) {
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '触控乐器',
-                    style: Theme.of(sheetContext).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 14),
-                  for (final item in _TouchInstrument.values) ...[
-                    _InstrumentBrowserTile(
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.72,
+            minChildSize: 0.32,
+            maxChildSize: 0.94,
+            builder: (context, scrollController) {
+              return SafeArea(
+                top: false,
+                child: ListView.separated(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: _TouchInstrument.values.length + 1,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          '触控乐器',
+                          style: Theme.of(sheetContext).textTheme.titleLarge,
+                        ),
+                      );
+                    }
+                    final item = _TouchInstrument.values[index - 1];
+                    return _InstrumentBrowserTile(
                       instrument: item,
                       selected: item == _instrument,
                       onTap: () {
@@ -195,12 +261,11 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                         setState(() => _instrument = item);
                         Navigator.pop(sheetContext);
                       },
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ],
-              ),
-            ),
+                    );
+                  },
+                ),
+              );
+            },
           );
         },
       );
@@ -318,43 +383,70 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
       child: Scaffold(
         key: _scaffoldKey,
         drawer: const Drawer(child: MidiConfig()),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _GarageControlBar(
-                instrument: _instrument,
-                connectedCount: connected.length,
-                onOpenInstrumentBrowser: showInstrumentBrowser,
-                onOpenMidiDevices: () => _scaffoldKey.currentState?.openDrawer(),
-                onGoToBeginning: () => _sendMomentaryCc(115),
-                onPlay: () => _sendMomentaryCc(111),
-                onStop: () => _sendMomentaryCc(112),
-                onRecord: () => _sendMomentaryCc(110),
-                onMetronome: () => _sendMomentaryCc(114),
-                onControls: showControls,
-                onPanic: _panic,
-              ),
-              const _MeasureRuler(),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: KeyedSubtree(
-                    key: ValueKey(_instrument),
-                    child: instrumentView(),
-                  ),
+        body: ColoredBox(
+          color: const Color(0xFF111111),
+          child: Builder(
+            builder: (context) {
+              final insets = MediaQuery.viewPaddingOf(context);
+              final landscape =
+                  MediaQuery.orientationOf(context) == Orientation.landscape;
+              final contentInsets = EdgeInsets.only(
+                left: math.max(insets.left, landscape ? 6.0 : 0.0),
+                right: math.max(insets.right, landscape ? 6.0 : 0.0),
+                top: insets.top,
+                bottom: insets.bottom,
+              );
+
+              return Padding(
+                padding: contentInsets,
+                child: Column(
+                  children: [
+                    _GarageControlBar(
+                      instrument: _instrument,
+                      connectedCount: connected.length,
+                      localAudioEnabled: localAudioEnabled,
+                      onOpenInstrumentBrowser: showInstrumentBrowser,
+                      onOpenMidiDevices: () =>
+                          _scaffoldKey.currentState?.openDrawer(),
+                      onToggleLocalAudio: () {
+                        final next = !localAudioEnabled;
+                        ref
+                            .read(flLocalAudioEnabledProvider.notifier)
+                            .setAndSave(next);
+                        if (!next) LocalSynth.instance.panic();
+                      },
+                      onGoToBeginning: () => _sendMomentaryCc(115),
+                      onPlay: () => _sendMomentaryCc(111),
+                      onStop: () => _sendMomentaryCc(112),
+                      onRecord: () => _sendMomentaryCc(110),
+                      onMetronome: () => _sendMomentaryCc(114),
+                      onControls: showControls,
+                      onPanic: _panic,
+                    ),
+                    const _MeasureRuler(),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: KeyedSubtree(
+                          key: ValueKey(_instrument),
+                          child: instrumentView(),
+                        ),
+                      ),
+                    ),
+                    _InstrumentStatusBar(
+                      channel: channel,
+                      velocity: velocity,
+                      scale: scale,
+                      scaleRoot: scaleRoot,
+                      scaleLock: scaleLock,
+                      tempo: tempo,
+                    ),
+                  ],
                 ),
-              ),
-              _InstrumentStatusBar(
-                channel: channel,
-                velocity: velocity,
-                scale: scale,
-                scaleRoot: scaleRoot,
-                scaleLock: scaleLock,
-                tempo: tempo,
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
@@ -367,8 +459,10 @@ class _GarageControlBar extends StatelessWidget {
   const _GarageControlBar({
     required this.instrument,
     required this.connectedCount,
+    required this.localAudioEnabled,
     required this.onOpenInstrumentBrowser,
     required this.onOpenMidiDevices,
+    required this.onToggleLocalAudio,
     required this.onGoToBeginning,
     required this.onPlay,
     required this.onStop,
@@ -380,8 +474,10 @@ class _GarageControlBar extends StatelessWidget {
 
   final _TouchInstrument instrument;
   final int connectedCount;
+  final bool localAudioEnabled;
   final VoidCallback onOpenInstrumentBrowser;
   final VoidCallback onOpenMidiDevices;
+  final VoidCallback onToggleLocalAudio;
   final VoidCallback onGoToBeginning;
   final VoidCallback onPlay;
   final VoidCallback onStop;
@@ -416,6 +512,15 @@ class _GarageControlBar extends StatelessWidget {
                       : Icons.usb_off_rounded,
                   foregroundColor:
                       connectedCount > 0 ? scheme.primary : null,
+                ),
+                _BarButton(
+                  tooltip: localAudioEnabled ? '关闭本地监听' : '开启本地监听',
+                  onPressed: onToggleLocalAudio,
+                  icon: localAudioEnabled
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                  foregroundColor:
+                      localAudioEnabled ? scheme.tertiary : null,
                 ),
                 if (!compact) ...[
                   const VerticalDivider(
@@ -2168,6 +2273,8 @@ class _ControlArea extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
+        const _LocalMonitorCard(),
+        const SizedBox(height: 10),
         _SectionCard(
           title: '乐曲设置',
           subtitle: '供琶音器、智能鼓机与节拍音序器使用。',
@@ -2284,6 +2391,86 @@ class _ControlArea extends ConsumerWidget {
 }
 
 
+class _LocalMonitorCard extends ConsumerWidget {
+  const _LocalMonitorCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(flLocalAudioEnabledProvider);
+    final volume = ref.watch(flLocalAudioVolumeProvider);
+    final tone = ref.watch(flLocalToneProvider);
+
+    return _SectionCard(
+      title: '本地监听',
+      subtitle: '不连接 FL Studio 也会直接从手机扬声器/耳机出声；MIDI 仍会同时发送。',
+      child: Column(
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('本机发声'),
+            subtitle: const Text('独立于 USB、蓝牙和 FL Studio 连接状态。'),
+            value: enabled,
+            onChanged: (value) {
+              ref
+                  .read(flLocalAudioEnabledProvider.notifier)
+                  .setAndSave(value);
+              if (!value) LocalSynth.instance.panic();
+            },
+          ),
+          if (enabled) ...[
+            Row(
+              children: [
+                const SizedBox(width: 52, child: Text('音量')),
+                Expanded(
+                  child: Slider(
+                    min: 0,
+                    max: 100,
+                    divisions: 100,
+                    value: volume.toDouble(),
+                    onChanged: (value) => ref
+                        .read(flLocalAudioVolumeProvider.notifier)
+                        .setAndSave(value.round()),
+                  ),
+                ),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '$volume%',
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<FlLocalTone>(
+              value: tone,
+              isExpanded: true,
+              menuMaxHeight: 280,
+              decoration: const InputDecoration(
+                labelText: '本地音色',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                for (final item in FlLocalTone.values)
+                  DropdownMenuItem(
+                    value: item,
+                    child: Text(item.label),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                ref.read(flLocalToneProvider.notifier).setAndSave(value);
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _StudioProfiles extends ConsumerWidget {
   const _StudioProfiles();
 
@@ -2340,6 +2527,7 @@ class _SmartAssistCard extends ConsumerWidget {
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
+                  menuMaxHeight: 360,
                   items: [
                     for (final item in FlScale.values)
                       DropdownMenuItem(
@@ -2365,6 +2553,7 @@ class _SmartAssistCard extends ConsumerWidget {
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
+                  menuMaxHeight: 360,
                   items: [
                     for (int note = 0; note < 12; note++)
                       DropdownMenuItem(
