@@ -2,6 +2,7 @@ import 'package:beat_pads/screen_midi_devices/_drawer_devices.dart';
 import 'package:beat_pads/services/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -71,9 +72,18 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   }
 
   void _panic() {
+    HapticFeedback.mediumImpact();
     _setSustain(false);
     _resetPitch();
     MidiUtils.sendAllNotesOffMessage(_channel);
+  }
+
+  void _sendCc(int controller, int value) {
+    CCMessage(
+      channel: _channel,
+      controller: controller.clamp(0, 127).toInt(),
+      value: value.clamp(0, 127).toInt(),
+    ).send();
   }
 
   @override
@@ -81,9 +91,35 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     final connected = ref.watch(connectedDevicesProv);
     final channel = ref.watch(channelUsableProv);
     final velocity = ref.watch(velocityProv);
-    final scheme = Theme.of(context).colorScheme;
+    final scale = ref.watch(flScaleProvider);
+    final scaleRoot = ref.watch(flScaleRootProvider);
+    final scaleLock = ref.watch(flScaleLockProvider);
+    final touchDynamics = ref.watch(flTouchDynamicsProvider);
+    final scheme = ColorScheme.fromSeed(
+      seedColor: Palette.cadetBlue,
+      brightness: Brightness.dark,
+    );
+    final modernTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: scheme.primary,
+        thumbColor: scheme.primary,
+        overlayColor: scheme.primary.withValues(alpha: 0.14),
+      ),
+    );
 
-    return Scaffold(
+    return Theme(
+      data: modernTheme,
+      child: Scaffold(
       drawer: const Drawer(child: MidiConfig()),
       appBar: AppBar(
         titleSpacing: 8,
@@ -117,6 +153,10 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
               keyboardBaseNote: _keyboardBaseNote,
               fpcBaseNote: _fpcBaseNote,
               velocity: velocity,
+              scale: scale,
+              scaleRoot: scaleRoot,
+              scaleLock: scaleLock,
+              touchDynamics: touchDynamics,
               onNoteOn: _noteOn,
               onNoteOff: _noteOff,
               onOctaveDown: () {
@@ -151,6 +191,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
               onModChanged: _setMod,
               onSustainChanged: _setSustain,
               onTransportCc: _sendMomentaryCc,
+              onCc: _sendCc,
               onPanic: _panic,
             );
 
