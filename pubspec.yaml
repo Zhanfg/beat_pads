@@ -1,5 +1,5 @@
 name: beat_pads
-description: Midi Poly Grid - A USB Midi Pad Controller for Music Production with MPE and Polyphonic Aftertouch
+description: AXYP-powered mobile instrument and FL Studio companion
 publish_to: "none"
 version: 1.5.0+139
 
@@ -8,8 +8,6 @@ environment:
   flutter: ^3.44.0
 
 dependencies:
-  animated_text_kit: ^4.2.2
-
   flutter:
     sdk: flutter
 
@@ -22,16 +20,12 @@ dependencies:
 
   flutter_riverpod: ^2.6.1
   flutter_soloud: ^5.1.5
-  rive: ^0.14.10
   shared_preferences: ^2.5.3
-  url_launcher: ^6.3.1
-  wakelock_plus: ^1.7.0
 
 dev_dependencies:
   # austerity: ^1.0.0
   flutter_launcher_icons: ^0.14.3
   flutter_lints: ^6.0.0
-  flutter_native_splash: ^2.4.8
   flutter_test:
     sdk: flutter
   # very_good_analysis: ^6.0.0
@@ -74,17 +68,3 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/anim/doggo4.riv
-    - assets/logo/logo_noframe.png
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/assets-and-images/#resolution-aware.
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/assets-and-images/#from-packages
-
-  fonts:
-    - family: Righteous
-      fonts:
-        - asset: assets/fonts/Righteous-Regular.ttf
