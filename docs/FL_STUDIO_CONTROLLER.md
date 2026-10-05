@@ -43,6 +43,13 @@ The FL Studio workspace intentionally reuses the existing `flutter_midi_command`
 
 The existing Midi Poly Grid workflow remains unchanged. The FL Studio screen is an additive workspace reachable from the piano icon in the main menu.
 
+## 1.4.1 中文界面修复
+
+- 应用启动后默认直接进入 FL Studio Companion，不再先显示上游英文设置主页。
+- 启动页、MIDI 设备抽屉、连接帮助、布局/MIDI/高级/系统设置、MPE 调制选项以及旧演奏控件全部中文化。
+- FL Studio 工作区剩余的鼓组标签（Kick/Snare/Hi-Hat 等）改为中文。
+- 保留 FL Studio、MIDI、MPE、CC、BPM、Program Change 等必要专业术语，不做误导性翻译。
+
 ## 1.4.0 中文化与扩展乐器
 
 1.4.0 将 FL Studio Companion 工作区的主要可见界面中文化，并把触控乐器扩展到 9 类：
