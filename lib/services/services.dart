@@ -1,6 +1,5 @@
 export 'audio/local_synth.dart';
 export 'constants/const_colors.dart';
-export 'constants/const_midi.dart';
 export 'input/multi_touch_note_router.dart';
 export 'protocol/axyp_event.dart';
 export 'protocol/performance_router.dart';
