@@ -1340,6 +1340,7 @@ class _ClipEditToolbar extends StatelessWidget {
     if (clip == null) return const SizedBox.shrink();
 
     final beatMicros = (60000000 / session.project.tempo).round();
+    final gridMicros = (beatMicros * 4 / 16).round();
     return SizedBox(
       height: 46,
       child: ListView(
@@ -1380,6 +1381,16 @@ class _ClipEditToolbar extends StatelessWidget {
             label: '力度 +10',
             icon: Icons.volume_up_rounded,
             onTap: () => session.changeSelectedVelocity(10),
+          ),
+          _EditorAction(
+            label: '裁左 1/16',
+            icon: Icons.vertical_align_top_rounded,
+            onTap: () => session.trimSelectedClipStart(gridMicros),
+          ),
+          _EditorAction(
+            label: '裁右 1/16',
+            icon: Icons.vertical_align_bottom_rounded,
+            onTap: () => session.trimSelectedClipEnd(gridMicros),
           ),
           _EditorAction(
             label: '左移',
@@ -1537,6 +1548,13 @@ class _ProjectTimeline extends StatelessWidget {
                                   session.selectTrack(track.id);
                                   session.selectClip(clip.id);
                                 },
+                                onSplitFraction: (fraction) {
+                                  session.selectTrack(track.id);
+                                  session.selectClip(clip.id);
+                                  session.splitSelectedClipAt(
+                                    (clip.lengthMicros * fraction).round(),
+                                  );
+                                },
                               ),
                             ),
                         ],
@@ -1558,45 +1576,72 @@ class _TimelineClip extends StatelessWidget {
     required this.clip,
     required this.selected,
     required this.onTap,
+    required this.onSplitFraction,
   });
 
   final StudioClip clip;
   final bool selected;
   final VoidCallback onTap;
+  final ValueChanged<double> onSplitFraction;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? scheme.primary : scheme.primaryContainer,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: Row(
-            children: [
-              if (clip.loop) ...[
-                const Icon(Icons.loop_rounded, size: 13),
-                const SizedBox(width: 4),
-              ],
-              Expanded(
-                child: Text(
-                  clip.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: selected
-                            ? scheme.onPrimary
-                            : scheme.onPrimaryContainer,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPressStart: (details) {
+            if (constraints.maxWidth <= 0) return;
+            final fraction =
+                (details.localPosition.dx / constraints.maxWidth)
+                    .clamp(0.02, 0.98)
+                    .toDouble();
+            HapticFeedback.mediumImpact();
+            onSplitFraction(fraction);
+          },
+          child: Material(
+            color: selected ? scheme.primary : scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
+                ),
+                child: Row(
+                  children: [
+                    if (clip.loop) ...[
+                      const Icon(Icons.loop_rounded, size: 13),
+                      const SizedBox(width: 4),
+                    ],
+                    Expanded(
+                      child: Text(
+                        clip.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: selected
+                                      ? scheme.onPrimary
+                                      : scheme.onPrimaryContainer,
+                                ),
                       ),
+                    ),
+                    if (selected)
+                      const Tooltip(
+                        message: '长按片段位置可切分',
+                        child: Icon(Icons.content_cut_rounded, size: 13),
+                      ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
