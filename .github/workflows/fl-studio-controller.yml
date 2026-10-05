@@ -1,0 +1,56 @@
+name: FL Studio Controller CI
+
+on:
+  pull_request:
+    branches:
+      - main_2025
+  workflow_dispatch:
+
+concurrency:
+  group: fl-studio-controller-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Toolchain
+        run: flutter --version
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Format check
+        run: dart format --output=none lib test
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test
+        run: flutter test
+
+      - name: Build arm64 preview APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: midi-poly-grid-fl-studio-arm64
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

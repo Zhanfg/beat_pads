@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:beat_pads/shared_components/_shared.dart';
+import 'package:beat_pads/shared_components/strings_info_box.dart';
 import 'package:flutter/material.dart';
 
 List<Widget> helpText = [
@@ -8,20 +8,20 @@ List<Widget> helpText = [
     const StringInfoBox(
       header: 'USB',
       body: [
-        'Connect USB cable to Host Device',
-        "Slide down the Notification Menu and set the USB connection mode to 'Midi'",
-        'If there is no Midi option available, your Android phone may only show this setting in the Developer Menu. Please refer to readily available instructions online on how to access this Menu on your Device',
-        'Once Midi mode is activated, refresh this Device List',
-        'Tap USB Device to Connect',
+        '用 USB 数据线连接到运行 FL Studio 的主机',
+        '下拉系统通知栏，将 USB 用途切换为“ MIDI ”',
+        '如果没有 MIDI 选项，请在 Android 开发者选项中检查“默认 USB 配置”。',
+        '切换到 MIDI 模式后，刷新设备列表。',
+        '点击 USB MIDI 设备即可连接。',
         '',
-        'Note: The Developer menu allows you to set the default USB connection mode to Midi',
+        '提示：可以在开发者选项中把默认 USB 配置设为 MIDI。',
       ],
     ),
   if (Platform.isIOS)
     const StringInfoBox(
       header: 'USB',
       body: [
-        'Connect USB cable to Host Device',
+        '用 USB 数据线连接到运行 FL Studio 的主机',
         "Open 'Audio MIDI Setup' on Mac and click 'Enable' under iPad/iPhone in the 'Audio Devices' Window",
         'Refresh this Device List',
         "Tap 'IDAM MIDI Host' to Connect",
@@ -30,36 +30,36 @@ List<Widget> helpText = [
       ],
     ),
   StringInfoBox(
-    header: 'Bluetooth Midi',
+    header: '蓝牙 MIDI',
     body: [
-      "Advertise the Midi Instrument that you want to connect to in that Device's Midi Settings.",
-      "For example, on a Macbook you can advertise it in the 'Audio Midi Setup' app, by clicking the Bluetooth Symbol in the Midi settings. And for another example, on an IPad you often make BLE Midi available in each app individually.",
-      "You can always refresh this list to scan for available BLE Midi devices."
+      '先在目标设备或软件中开启 BLE MIDI 广播。',
+      '例如 macOS 可在“音频 MIDI 设置”中开启蓝牙 MIDI；iPad/iPhone 通常需要在对应音乐应用内开启。',
+      '点击刷新即可重新扫描附近的 BLE MIDI 设备。'
     ],
   ),
   StringInfoBox(
-    header: 'Virtual',
+    header: '虚拟 MIDI',
     body: [
       if (Platform.isIOS)
         "Some third-Party apps, like 'AudioKit Synth One', make a Virtual Midi Device available on your Phone or Tablet, which you can connect to in Midi Poly Grid through CoreMidi",
       if (Platform.isAndroid)
-        "Some third-Party apps, like 'FluidSynth', make a Virtual Midi Device available on your Phone or Tablet, which you can connect to in Midi Poly Grid",
-      'When such an App has been installed it will appear in this Device List',
-      'After connection, Midi Poly Grid can send Midi Data to the App, for example, to play a Synthesizer on your Device with Midi Poly Grid',
+        '部分 Android 音频应用会创建虚拟 MIDI 端口，可直接在这里连接。',
+      '安装并启动支持虚拟 MIDI 的应用后，它会出现在设备列表中。',
+      '连接后，本应用可以向该应用发送 MIDI，例如控制手机上的合成器。',
       '',
-      'Note: If the receiving App has a Setting to allow it to run in the background, make sure to enable it',
+      '提示：如果接收端支持后台运行，请开启对应选项。',
     ],
   ),
   if (Platform.isIOS)
     const StringInfoBox(
-      header: 'WiFi',
+      header: 'Wi‑Fi MIDI',
       body: [
-        'Connect to same WiFi as Host Device',
-        "Connect to 'Network Session 1' in this Device List",
-        "Open 'Audio MIDI Setup' on Mac and open the 'MIDI Studio' window",
-        "Create a Session in the 'MIDI Network Setup' window and connect to your iPad/iPhone",
+        '让手机与主机连接到同一个 Wi‑Fi。',
+        '在设备列表中连接“Network Session 1”。',
+        '在 Mac 打开“音频 MIDI 设置”，进入 MIDI Studio。',
+        '在 MIDI Network Setup 中创建 Session，并连接手机。',
         '',
-        "Note: Wireless Protocols add Latency. Connection to Windows Hosts via WiFi requires third-party Software (like 'rtpMIDI')",
+        '提示：无线 MIDI 会增加延迟；Windows 通常需要 rtpMIDI 等第三方软件。',
       ],
     ),
 ];

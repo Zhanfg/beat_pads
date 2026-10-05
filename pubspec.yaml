@@ -1,15 +1,13 @@
 name: beat_pads
-description: Midi Poly Grid - A USB Midi Pad Controller for Music Production with MPE and Polyphonic Aftertouch
+description: AXYP-powered mobile instrument and FL Studio companion
 publish_to: "none"
-version: 1.1.14+134
+version: 1.8.0+143
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
   flutter: ^3.44.0
 
 dependencies:
-  animated_text_kit: ^4.2.2
-
   flutter:
     sdk: flutter
 
@@ -21,69 +19,17 @@ dependencies:
     #   ref: master
 
   flutter_riverpod: ^2.6.1
-  rive: ^0.14.10
+  flutter_soloud: ^5.1.5
   shared_preferences: ^2.5.3
-  url_launcher: ^6.3.1
-  wakelock_plus: ^1.7.0
 
 dev_dependencies:
   # austerity: ^1.0.0
-  flutter_launcher_icons: ^0.14.3
   flutter_lints: ^6.0.0
-  flutter_native_splash: ^2.4.8
   flutter_test:
     sdk: flutter
   # very_good_analysis: ^6.0.0
-
-flutter_native_splash:
-  # This package generates native code to customize Flutter's default white native splash screen
-  # with background color and splash image
-
-  # Customize the parameters below, and run the following command in the terminal:
-  # dart run flutter_native_splash:create
-
-  # To restore Flutter's default white splash screen, run the following command in the terminal:
-  # dart run flutter_native_splash:remove
-
-  # IMPORTANT NOTE: These parameter do not affect the configuration of Android 12 and later, which
-  # handle splash screens differently that prior versions of Android.  Android 12 and later must be
-  # configured specifically in the android_12 section below.
-  color: "#FCFCFD" # = const HSLColor.fromAHSL(1, 240, 0.1, 0.99).toColor()
-  color_dark: "#2d2b36" # = Palette.menuHeaders = const Color.fromARGB(255, 45, 43, 54);
-  android_12:
-    color: "#FCFCFD"
-    color_dark: "#2d2b36"
-
-flutter_launcher_icons:
-  # Recompile icons with:
-  #   dart run flutter_launcher_icons
-
-  #  - Icons Settings -
-  # image_path: "assets/logo/logo.png"
-  ios: true
-  image_path_ios: "assets/logo/logo_ios.png"
-  remove_alpha_ios: true
-
-  android: true
-  image_path_android: "assets/logo/logo.png"
-  adaptive_icon_foreground: "assets/logo/logo_foreground.png"
-  adaptive_icon_background: "assets/logo/logo_back.png"
 
 flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/anim/doggo4.riv
-    - assets/logo/logo_noframe.png
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/assets-and-images/#resolution-aware.
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/assets-and-images/#from-packages
-
-  fonts:
-    - family: Righteous
-      fonts:
-        - asset: assets/fonts/Righteous-Regular.ttf

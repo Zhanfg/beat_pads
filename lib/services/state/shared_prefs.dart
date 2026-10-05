@@ -1,9 +1,12 @@
-import 'package:beat_pads/main.dart';
 import 'package:beat_pads/services/state/settings_presets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Holds an instance of the loaded [SharedPreferences]
+final sharedPrefProvider = Provider<Prefs>((ref) {
+  throw UnimplementedError('Shared preferences must be overridden at startup.');
+});
+
 class Prefs {
   Prefs._();
   late SharedPreferences sharedPrefs;
@@ -119,7 +122,7 @@ class SettingIntNotifier extends SettingNotifier<int> {
 
   @override
   void set(int newState) {
-    state = newState.clamp(min, max);
+    state = newState.clamp(min, max).toInt();
   }
 
   @override
@@ -178,7 +181,7 @@ class SettingDoubleNotifier extends SettingNotifier<double> {
 
   @override
   void set(double newState) {
-    state = newState.clamp(min, max);
+    state = newState.clamp(min, max).toDouble();
   }
 
   @override
