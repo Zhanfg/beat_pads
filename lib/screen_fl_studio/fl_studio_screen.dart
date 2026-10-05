@@ -509,11 +509,35 @@ class _ControlArea extends ConsumerWidget {
   }
 }
 
+int _velocityFromTouch(
+  PointerDownEvent event,
+  int fallback,
+  bool enabled,
+) {
+  if (!enabled) return fallback;
+
+  final range = event.pressureMax - event.pressureMin;
+  if (range > 0.0001) {
+    final normalized =
+        ((event.pressure - event.pressureMin) / range).clamp(0.0, 1.0);
+    // Many Android panels report a constant 1.0 when pressure is unavailable.
+    // In that case keep the user's configured velocity instead of forcing 127.
+    if (normalized > 0.01 && normalized < 0.99) {
+      return (24 + normalized * 103).round().clamp(1, 127);
+    }
+  }
+  return fallback;
+}
+
 class _ChromaticKeyboard extends StatelessWidget {
   const _ChromaticKeyboard({
     required this.baseNote,
     required this.noteCount,
     required this.velocity,
+    required this.scale,
+    required this.scaleRoot,
+    required this.scaleLock,
+    required this.touchDynamics,
     required this.onNoteOn,
     required this.onNoteOff,
   });
@@ -521,6 +545,10 @@ class _ChromaticKeyboard extends StatelessWidget {
   final int baseNote;
   final int noteCount;
   final int velocity;
+  final FlScale scale;
+  final int scaleRoot;
+  final bool scaleLock;
+  final bool touchDynamics;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
 
@@ -535,6 +563,8 @@ class _ChromaticKeyboard extends StatelessWidget {
       itemBuilder: (context, index) {
         final note = (baseNote + index).clamp(0, 127).toInt();
         final black = _black.contains(note % 12);
+        final inScale = scale.containsNote(note, scaleRoot);
+        final enabled = !scaleLock || inScale;
         return SizedBox(
           width: black ? 42 : 52,
           child: Padding(
@@ -543,6 +573,9 @@ class _ChromaticKeyboard extends StatelessWidget {
               note: note,
               velocity: velocity,
               dark: black,
+              enabled: enabled,
+              inScale: inScale,
+              touchDynamics: touchDynamics,
               onNoteOn: onNoteOn,
               onNoteOff: onNoteOff,
             ),
@@ -558,6 +591,9 @@ class _MidiKey extends StatefulWidget {
     required this.note,
     required this.velocity,
     required this.dark,
+    required this.enabled,
+    required this.inScale,
+    required this.touchDynamics,
     required this.onNoteOn,
     required this.onNoteOff,
   });
@@ -565,6 +601,9 @@ class _MidiKey extends StatefulWidget {
   final int note;
   final int velocity;
   final bool dark;
+  final bool enabled;
+  final bool inScale;
+  final bool touchDynamics;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
 
@@ -578,9 +617,19 @@ class _MidiKeyState extends State<_MidiKey> {
   bool get _active => _pointers.isNotEmpty;
 
   void _down(PointerDownEvent event) {
+    if (!widget.enabled) return;
     final wasInactive = _pointers.isEmpty;
     _pointers.add(event.pointer);
-    if (wasInactive) widget.onNoteOn(widget.note, velocity: widget.velocity);
+    if (wasInactive) {
+      widget.onNoteOn(
+        widget.note,
+        velocity: _velocityFromTouch(
+          event,
+          widget.velocity,
+          widget.touchDynamics,
+        ),
+      );
+    }
     setState(() {});
   }
 
@@ -595,6 +644,8 @@ class _MidiKeyState extends State<_MidiKey> {
     final scheme = Theme.of(context).colorScheme;
     final base = widget.dark ? scheme.inverseSurface : scheme.surfaceContainerHighest;
     final active = scheme.primaryContainer;
+    final disabled = scheme.surfaceContainerLow;
+    final scaleAccent = scheme.secondaryContainer;
 
     return Listener(
       behavior: HitTestBehavior.opaque,
@@ -604,7 +655,13 @@ class _MidiKeyState extends State<_MidiKey> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 45),
         decoration: BoxDecoration(
-          color: _active ? active : base,
+          color: !widget.enabled
+              ? disabled
+              : _active
+                  ? active
+                  : widget.inScale
+                      ? scaleAccent
+                      : base,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: scheme.outlineVariant),
         ),
@@ -614,7 +671,11 @@ class _MidiKeyState extends State<_MidiKey> {
           MidiUtils.getNoteName(widget.note),
           style: TextStyle(
             fontSize: 11,
-            color: widget.dark && !_active ? scheme.onInverseSurface : scheme.onSurface,
+            color: !widget.enabled
+                ? scheme.onSurface.withValues(alpha: 0.32)
+                : widget.dark && !_active && !widget.inScale
+                    ? scheme.onInverseSurface
+                    : scheme.onSurface,
           ),
         ),
       ),
@@ -626,12 +687,14 @@ class _FpcGrid extends StatelessWidget {
   const _FpcGrid({
     required this.baseNote,
     required this.velocity,
+    required this.touchDynamics,
     required this.onNoteOn,
     required this.onNoteOff,
   });
 
   final int baseNote;
   final int velocity;
+  final bool touchDynamics;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
 
@@ -659,6 +722,7 @@ class _FpcGrid extends StatelessWidget {
           label: _labels[index],
           note: note,
           velocity: velocity,
+          touchDynamics: touchDynamics,
           onNoteOn: onNoteOn,
           onNoteOff: onNoteOff,
         );
@@ -672,6 +736,7 @@ class _DrumPad extends StatefulWidget {
     required this.label,
     required this.note,
     required this.velocity,
+    required this.touchDynamics,
     required this.onNoteOn,
     required this.onNoteOff,
   });
@@ -679,6 +744,7 @@ class _DrumPad extends StatefulWidget {
   final String label;
   final int note;
   final int velocity;
+  final bool touchDynamics;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
 
@@ -691,7 +757,14 @@ class _DrumPadState extends State<_DrumPad> {
 
   void _down(PointerDownEvent event) {
     if (_pointers.isEmpty) {
-      widget.onNoteOn(widget.note, velocity: widget.velocity);
+      widget.onNoteOn(
+        widget.note,
+        velocity: _velocityFromTouch(
+          event,
+          widget.velocity,
+          widget.touchDynamics,
+        ),
+      );
     }
     _pointers.add(event.pointer);
     setState(() {});
