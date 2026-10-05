@@ -150,18 +150,22 @@ final class PerformanceRouter {
             ),
           );
         }
+        break;
       case AxypNoteOff e:
         NoteOffMessage(channel: e.channel, note: e.note).send();
         LocalSynth.instance.noteOff(e.note);
+        break;
       case AxypControl e:
         CCMessage(
           channel: e.channel,
           controller: e.controller,
           value: e.value,
         ).send();
+        break;
       case AxypPitch e:
         PitchBendMessage(channel: e.channel, bend: e.value).send();
         LocalSynth.instance.setPitchBend(e.value);
+        break;
       case AxypSustain e:
         CCMessage(
           channel: e.channel,
@@ -169,15 +173,18 @@ final class PerformanceRouter {
           value: e.enabled ? 127 : 0,
         ).send();
         LocalSynth.instance.setSustain(e.enabled);
+        break;
       case AxypTransport e:
         CCMessage(
           channel: e.channel,
           controller: e.controller,
           value: e.pressed ? 127 : 0,
         ).send();
+        break;
       case AxypPanic e:
         CCMessage(channel: e.channel, controller: 123).send();
         LocalSynth.instance.panic();
+        break;
     }
   }
 }
