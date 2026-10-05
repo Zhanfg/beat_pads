@@ -222,7 +222,8 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
           },
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -231,6 +232,10 @@ class _PerformanceArea extends StatelessWidget {
     required this.keyboardBaseNote,
     required this.fpcBaseNote,
     required this.velocity,
+    required this.scale,
+    required this.scaleRoot,
+    required this.scaleLock,
+    required this.touchDynamics,
     required this.onNoteOn,
     required this.onNoteOff,
     required this.onOctaveDown,
@@ -242,6 +247,10 @@ class _PerformanceArea extends StatelessWidget {
   final int keyboardBaseNote;
   final int fpcBaseNote;
   final int velocity;
+  final FlScale scale;
+  final int scaleRoot;
+  final bool scaleLock;
+  final bool touchDynamics;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
   final VoidCallback onOctaveDown;
@@ -287,6 +296,10 @@ class _PerformanceArea extends StatelessWidget {
               baseNote: keyboardBaseNote,
               noteCount: 25,
               velocity: velocity,
+              scale: scale,
+              scaleRoot: scaleRoot,
+              scaleLock: scaleLock,
+              touchDynamics: touchDynamics,
               onNoteOn: onNoteOn,
               onNoteOff: onNoteOff,
             ),
@@ -313,6 +326,7 @@ class _PerformanceArea extends StatelessWidget {
             child: _FpcGrid(
               baseNote: fpcBaseNote,
               velocity: velocity,
+              touchDynamics: touchDynamics,
               onNoteOn: onNoteOn,
               onNoteOff: onNoteOff,
             ),
@@ -323,7 +337,7 @@ class _PerformanceArea extends StatelessWidget {
   }
 }
 
-class _ControlArea extends StatelessWidget {
+class _ControlArea extends ConsumerWidget {
   const _ControlArea({
     required this.pitch,
     required this.mod,
@@ -335,6 +349,7 @@ class _ControlArea extends StatelessWidget {
     required this.onModChanged,
     required this.onSustainChanged,
     required this.onTransportCc,
+    required this.onCc,
     required this.onPanic,
   });
 
@@ -348,10 +363,11 @@ class _ControlArea extends StatelessWidget {
   final ValueChanged<double> onModChanged;
   final ValueChanged<bool> onSustainChanged;
   final Future<void> Function(int controller) onTransportCc;
+  final void Function(int controller, int value) onCc;
   final VoidCallback onPanic;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
 
     return Padding(
@@ -367,6 +383,28 @@ class _ControlArea extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(child: _Metric(label: 'VELOCITY', value: '$velocity')),
             ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _StudioProfiles(),
+        const SizedBox(height: 10),
+        _SmartAssistCard(),
+        const SizedBox(height: 10),
+        _SectionCard(
+          title: 'XY CONTROL',
+          subtitle: 'Two-axis continuous control. Defaults: X=CC74, Y=CC71.',
+          child: _XyControlPad(
+            channel: channel,
+            onCc: onCc,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SectionCard(
+          title: 'SMART MACROS',
+          subtitle: 'Four assignable CC macros for FL Studio Link to controller.',
+          child: _MacroDeck(
+            channel: channel,
+            onCc: onCc,
           ),
         ),
         const SizedBox(height: 10),
