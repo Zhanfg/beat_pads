@@ -41,6 +41,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   double _pitch = 0;
   double _mod = 0;
   bool _sustain = false;
+  late final PerformanceRouter _performance;
 
   int get _channel => ref.read(channelUsableProv);
   int get _velocity => ref.read(velocityProv);
@@ -53,90 +54,84 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   @override
   void initState() {
     super.initState();
+    _performance = PerformanceRouter(
+      channel: () => ref.read(channelUsableProv),
+      velocity: () => ref.read(velocityProv),
+      localAudioEnabled: () => ref.read(flLocalAudioEnabledProvider),
+      percussive: () => _percussiveInstrument,
+    );
     unawaited(LocalSynth.instance.ensureReady());
   }
 
   @override
   void dispose() {
-    final channel = _channel;
-    MidiUtils.sendSustainMessage(channel, state: false);
-    MidiUtils.sendAllNotesOffMessage(channel);
-    PitchBendMessage(channel: channel).send();
-    LocalSynth.instance.panic();
+    _performance.sustain(false);
+    _performance.pitch(0);
+    _performance.panic();
     super.dispose();
   }
 
   void _noteOn(int note, {int? velocity}) {
-    final safeNote = note.clamp(0, 127).toInt();
-    final safeVelocity = (velocity ?? _velocity).clamp(1, 127).toInt();
+    _performance.noteOn(note, velocity: velocity);
+  }
 
-    NoteOnMessage(
-      channel: _channel,
-      note: safeNote,
-      velocity: safeVelocity,
-    ).send();
-
-    if (ref.read(flLocalAudioEnabledProvider)) {
-      unawaited(
-        LocalSynth.instance.noteOn(
-          safeNote,
-          safeVelocity,
-          percussive: _percussiveInstrument,
-        ),
-      );
-    }
+  void _pointerNoteOn(
+    int note, {
+    int? velocity,
+    int pointerId = -1,
+  }) {
+    _performance.noteOn(
+      note,
+      velocity: velocity,
+      pointerId: pointerId,
+    );
   }
 
   void _noteOff(int note) {
-    final safeNote = note.clamp(0, 127).toInt();
-    NoteOffMessage(channel: _channel, note: safeNote).send();
-    LocalSynth.instance.noteOff(safeNote);
+    _performance.noteOff(note);
+  }
+
+  void _pointerNoteOff(int note, {int pointerId = -1}) {
+    _performance.noteOff(note, pointerId: pointerId);
   }
 
   void _setPitch(double value) {
     setState(() => _pitch = value);
-    PitchBendMessage(channel: _channel, bend: value).send();
-    LocalSynth.instance.setPitchBend(value);
+    _performance.pitch(value);
   }
 
   void _resetPitch() {
     setState(() => _pitch = 0);
-    PitchBendMessage(channel: _channel).send();
-    LocalSynth.instance.setPitchBend(0);
+    _performance.pitch(0);
   }
 
   void _setMod(double value) {
     setState(() => _mod = value);
-    MidiUtils.sendModWheelMessage(_channel, value.round());
+    _performance.control(1, value.round());
   }
 
   void _setSustain(bool enabled) {
     setState(() => _sustain = enabled);
-    MidiUtils.sendSustainMessage(_channel, state: enabled);
-    LocalSynth.instance.setSustain(enabled);
+    _performance.sustain(enabled);
   }
 
-  Future<void> _sendMomentaryCc(int controller) async {
-    final channel = _channel;
-    CCMessage(channel: channel, controller: controller, value: 127).send();
-    await Future<void>.delayed(const Duration(milliseconds: 24));
-    CCMessage(channel: channel, controller: controller, value: 0).send();
+  Future<void> _sendMomentaryCc(int controller) {
+    return _performance.transport(controller);
   }
 
   void _panic() {
     HapticFeedback.mediumImpact();
-    _setSustain(false);
-    _resetPitch();
-    MidiUtils.sendAllNotesOffMessage(_channel);
-    LocalSynth.instance.panic();
+    setState(() {
+      _sustain = false;
+      _pitch = 0;
+    });
+    _performance.sustain(false);
+    _performance.pitch(0);
+    _performance.panic();
   }
 
   void _sendCc(int controller, int value) {
-    CCMessage(
-      channel: _channel,
-      controller: controller.clamp(0, 127).toInt(),
-      value: value.clamp(0, 127).toInt(),
-    ).send();
+    _performance.control(controller, value);
   }
 
   @override
@@ -283,8 +278,8 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             touchDynamics: touchDynamics,
             sustain: _sustain,
             onSustainChanged: _setSustain,
-            onNoteOn: _noteOn,
-            onNoteOff: _noteOff,
+            onPointerNoteOn: _pointerNoteOn,
+            onPointerNoteOff: _pointerNoteOff,
             onOctaveDown: () {
               setState(() {
                 _keyboardBaseNote =
@@ -783,8 +778,8 @@ class _KeyboardInstrumentView extends StatelessWidget {
     required this.touchDynamics,
     required this.sustain,
     required this.onSustainChanged,
-    required this.onNoteOn,
-    required this.onNoteOff,
+    required this.onPointerNoteOn,
+    required this.onPointerNoteOff,
     required this.onOctaveDown,
     required this.onOctaveUp,
   });
@@ -797,8 +792,8 @@ class _KeyboardInstrumentView extends StatelessWidget {
   final bool touchDynamics;
   final bool sustain;
   final ValueChanged<bool> onSustainChanged;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onPointerNoteOn;
+  final PointerNoteOff onPointerNoteOff;
   final VoidCallback onOctaveDown;
   final VoidCallback onOctaveUp;
 
@@ -852,14 +847,14 @@ class _KeyboardInstrumentView extends StatelessWidget {
             Expanded(
               child: _PianoKeyboard(
                 baseNote: baseNote,
-                noteCount: 37,
+                noteCount: 25,
                 velocity: velocity,
                 scale: scale,
                 scaleRoot: scaleRoot,
                 scaleLock: scaleLock,
                 touchDynamics: touchDynamics,
-                onNoteOn: onNoteOn,
-                onNoteOff: onNoteOff,
+                onNoteOn: onPointerNoteOn,
+                onNoteOff: onPointerNoteOff,
               ),
             ),
           ],
@@ -2973,7 +2968,7 @@ int _velocityFromTouch(
 }
 
 
-class _PianoKeyboard extends StatelessWidget {
+class _PianoKeyboard extends StatefulWidget {
   const _PianoKeyboard({
     required this.baseNote,
     required this.noteCount,
@@ -2993,84 +2988,200 @@ class _PianoKeyboard extends StatelessWidget {
   final int scaleRoot;
   final bool scaleLock;
   final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
+  @override
+  State<_PianoKeyboard> createState() => _PianoKeyboardState();
+}
+
+class _PianoKeyboardState extends State<_PianoKeyboard> {
   static const Set<int> _blackPitchClasses = <int>{1, 3, 6, 8, 10};
+
+  late final MultiTouchNoteRouter _touches = MultiTouchNoteRouter(
+    onNoteOn: (
+      int note, {
+      int? velocity,
+      int pointerId = -1,
+    }) {
+      widget.onNoteOn(
+        note,
+        velocity: velocity,
+        pointerId: pointerId,
+      );
+    },
+    onNoteOff: (int note, {int pointerId = -1}) {
+      widget.onNoteOff(note, pointerId: pointerId);
+    },
+  );
 
   bool _isBlack(int note) => _blackPitchClasses.contains(note % 12);
 
+  List<int> get _notes => <int>[
+        for (int i = 0; i < widget.noteCount; i++)
+          (widget.baseNote + i).clamp(0, 127).toInt(),
+      ];
+
+  bool _enabled(int note) =>
+      !widget.scaleLock || widget.scale.containsNote(note, widget.scaleRoot);
+
+  int? _noteAt(
+    Offset position,
+    Size size,
+    List<int> notes,
+    List<int> whiteNotes,
+  ) {
+    if (position.dx < 0 ||
+        position.dy < 0 ||
+        position.dx >= size.width ||
+        position.dy >= size.height) {
+      return null;
+    }
+
+    final whiteWidth = size.width / whiteNotes.length;
+    final blackWidth = whiteWidth * 0.62;
+    final blackHeight = size.height * 0.62;
+
+    if (position.dy <= blackHeight) {
+      for (final note in notes.where(_isBlack)) {
+        final whitesBefore = notes
+            .takeWhile((candidate) => candidate < note)
+            .where((candidate) => !_isBlack(candidate))
+            .length;
+        final left = whitesBefore * whiteWidth - blackWidth / 2;
+        if (position.dx >= left && position.dx < left + blackWidth) {
+          return _enabled(note) ? note : null;
+        }
+      }
+    }
+
+    final whiteIndex =
+        (position.dx / whiteWidth).floor().clamp(0, whiteNotes.length - 1);
+    final note = whiteNotes[whiteIndex];
+    return _enabled(note) ? note : null;
+  }
+
+  void _down(
+    PointerDownEvent event,
+    Size size,
+    List<int> notes,
+    List<int> whiteNotes,
+  ) {
+    final note = _noteAt(event.localPosition, size, notes, whiteNotes);
+    if (note == null) return;
+    _touches.down(
+      event.pointer,
+      note,
+      velocity: _velocityFromTouch(
+        event,
+        widget.velocity,
+        widget.touchDynamics,
+      ),
+    );
+    setState(() {});
+  }
+
+  void _move(
+    PointerMoveEvent event,
+    Size size,
+    List<int> notes,
+    List<int> whiteNotes,
+  ) {
+    final note = _noteAt(event.localPosition, size, notes, whiteNotes);
+    _touches.move(
+      event.pointer,
+      note,
+      velocity: _velocityFromTouch(
+        event,
+        widget.velocity,
+        widget.touchDynamics,
+      ),
+    );
+    setState(() {});
+  }
+
+  void _up(int pointer) {
+    _touches.up(pointer);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant _PianoKeyboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.baseNote != widget.baseNote ||
+        oldWidget.scale != widget.scale ||
+        oldWidget.scaleRoot != widget.scaleRoot ||
+        oldWidget.scaleLock != widget.scaleLock) {
+      _touches.cancelAll();
+    }
+  }
+
+  @override
+  void dispose() {
+    _touches.cancelAll();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final notes = <int>[
-      for (int i = 0; i < noteCount; i++)
-        (baseNote + i).clamp(0, 127).toInt(),
-    ];
+    final notes = _notes;
     final whiteNotes = notes.where((note) => !_isBlack(note)).toList();
-    const whiteWidth = 52.0;
-    const blackWidth = 32.0;
-    final totalWidth = whiteNotes.length * whiteWidth;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final blackHeight = constraints.maxHeight * 0.62;
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: SizedBox(
-            width: totalWidth,
-            height: constraints.maxHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (int i = 0; i < whiteNotes.length; i++)
-                  Positioned(
-                    left: i * whiteWidth,
-                    top: 0,
-                    bottom: 0,
-                    width: whiteWidth,
-                    child: _PianoKey(
-                      note: whiteNotes[i],
-                      velocity: velocity,
-                      isBlack: false,
-                      enabled:
-                          !scaleLock ||
-                          scale.containsNote(whiteNotes[i], scaleRoot),
-                      inScale: scale.containsNote(
-                        whiteNotes[i],
-                        scaleRoot,
-                      ),
-                      touchDynamics: touchDynamics,
-                      onNoteOn: onNoteOn,
-                      onNoteOff: onNoteOff,
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        final whiteWidth = size.width / whiteNotes.length;
+        final blackWidth = whiteWidth * 0.62;
+        final blackHeight = size.height * 0.62;
+
+        return Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) => _down(event, size, notes, whiteNotes),
+          onPointerMove: (event) => _move(event, size, notes, whiteNotes),
+          onPointerUp: (event) => _up(event.pointer),
+          onPointerCancel: (event) => _up(event.pointer),
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              for (int i = 0; i < whiteNotes.length; i++)
+                Positioned(
+                  left: i * whiteWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: whiteWidth,
+                  child: _PianoKeyVisual(
+                    note: whiteNotes[i],
+                    isBlack: false,
+                    enabled: _enabled(whiteNotes[i]),
+                    inScale: widget.scale.containsNote(
+                      whiteNotes[i],
+                      widget.scaleRoot,
                     ),
+                    active: _touches.activeNotes.contains(whiteNotes[i]),
                   ),
-                for (final note in notes.where(_isBlack))
-                  Positioned(
-                    left:
-                        notes
-                                .takeWhile((candidate) => candidate < note)
-                                .where((candidate) => !_isBlack(candidate))
-                                .length *
-                            whiteWidth -
-                        blackWidth / 2,
-                    top: 0,
-                    width: blackWidth,
-                    height: blackHeight,
-                    child: _PianoKey(
-                      note: note,
-                      velocity: velocity,
-                      isBlack: true,
-                      enabled:
-                          !scaleLock || scale.containsNote(note, scaleRoot),
-                      inScale: scale.containsNote(note, scaleRoot),
-                      touchDynamics: touchDynamics,
-                      onNoteOn: onNoteOn,
-                      onNoteOff: onNoteOff,
-                    ),
+                ),
+              for (final note in notes.where(_isBlack))
+                Positioned(
+                  left:
+                      notes
+                              .takeWhile((candidate) => candidate < note)
+                              .where((candidate) => !_isBlack(candidate))
+                              .length *
+                          whiteWidth -
+                      blackWidth / 2,
+                  top: 0,
+                  width: blackWidth,
+                  height: blackHeight,
+                  child: _PianoKeyVisual(
+                    note: note,
+                    isBlack: true,
+                    enabled: _enabled(note),
+                    inScale:
+                        widget.scale.containsNote(note, widget.scaleRoot),
+                    active: _touches.activeNotes.contains(note),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         );
       },
@@ -3078,123 +3189,76 @@ class _PianoKeyboard extends StatelessWidget {
   }
 }
 
-class _PianoKey extends StatefulWidget {
-  const _PianoKey({
+class _PianoKeyVisual extends StatelessWidget {
+  const _PianoKeyVisual({
     required this.note,
-    required this.velocity,
     required this.isBlack,
     required this.enabled,
     required this.inScale,
-    required this.touchDynamics,
-    required this.onNoteOn,
-    required this.onNoteOff,
+    required this.active,
   });
 
   final int note;
-  final int velocity;
   final bool isBlack;
   final bool enabled;
   final bool inScale;
-  final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
-
-  @override
-  State<_PianoKey> createState() => _PianoKeyState();
-}
-
-class _PianoKeyState extends State<_PianoKey> {
-  final Set<int> _pointers = <int>{};
-
-  bool get _active => _pointers.isNotEmpty;
-
-  void _down(PointerDownEvent event) {
-    if (!widget.enabled) return;
-    if (_pointers.isEmpty) {
-      widget.onNoteOn(
-        widget.note,
-        velocity: _velocityFromTouch(
-          event,
-          widget.velocity,
-          widget.touchDynamics,
-        ),
-      );
-    }
-    _pointers.add(event.pointer);
-    if (mounted) setState(() {});
-  }
-
-  void _up(int pointer) {
-    _pointers.remove(pointer);
-    if (_pointers.isEmpty) widget.onNoteOff(widget.note);
-    if (mounted) setState(() {});
-  }
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final disabled = widget.isBlack
-        ? const Color(0xFF242424)
-        : const Color(0xFFB9B9B9);
-    final base = widget.isBlack
-        ? const Color(0xFF242424)
-        : const Color(0xFFF1F1F1);
-    final scaleTint = widget.isBlack
+    final disabled =
+        isBlack ? const Color(0xFF242424) : const Color(0xFFB9B9B9);
+    final base =
+        isBlack ? const Color(0xFF242424) : const Color(0xFFF1F1F1);
+    final scaleTint = isBlack
         ? Color.lerp(const Color(0xFF242424), scheme.primary, 0.28)!
         : Color.lerp(const Color(0xFFF1F1F1), scheme.primary, 0.16)!;
-    final active = widget.isBlack
-        ? Color.lerp(const Color(0xFF242424), scheme.primary, 0.58)!
+    final pressed = isBlack
+        ? Color.lerp(const Color(0xFF242424), scheme.primary, 0.65)!
         : scheme.primaryContainer;
 
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: _down,
-      onPointerUp: (event) => _up(event.pointer),
-      onPointerCancel: (event) => _up(event.pointer),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 42),
-        margin: EdgeInsets.fromLTRB(
-          widget.isBlack ? 1.5 : 0.7,
-          0,
-          widget.isBlack ? 1.5 : 0.7,
-          widget.isBlack ? 4 : 1,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 34),
+      margin: EdgeInsets.fromLTRB(
+        isBlack ? 1.2 : 0.6,
+        0,
+        isBlack ? 1.2 : 0.6,
+        isBlack ? 4 : 1,
+      ),
+      decoration: BoxDecoration(
+        color: !enabled
+            ? disabled.withValues(alpha: 0.52)
+            : active
+                ? pressed
+                : inScale
+                    ? scaleTint
+                    : base,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(isBlack ? 5 : 7),
+          bottomRight: Radius.circular(isBlack ? 5 : 7),
         ),
-        decoration: BoxDecoration(
-          color: !widget.enabled
-              ? disabled.withValues(alpha: 0.52)
-              : _active
-                  ? active
-                  : widget.inScale
-                      ? scaleTint
-                      : base,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(widget.isBlack ? 5 : 7),
-            bottomRight: Radius.circular(widget.isBlack ? 5 : 7),
-          ),
-          border: Border.all(
-            color: widget.isBlack
-                ? Colors.black
-                : const Color(0xFF888888),
-            width: widget.isBlack ? 1.5 : 0.7,
-          ),
-          boxShadow: widget.isBlack
-              ? const [
-                  BoxShadow(
-                    blurRadius: 4,
-                    offset: Offset(0, 3),
-                    color: Colors.black54,
-                  ),
-                ]
-              : null,
+        border: Border.all(
+          color: isBlack ? Colors.black : const Color(0xFF888888),
+          width: isBlack ? 1.5 : 0.7,
         ),
-        alignment: Alignment.bottomCenter,
-        padding: EdgeInsets.only(bottom: widget.isBlack ? 7 : 10),
-        child: Text(
-          MidiUtils.getNoteName(widget.note),
-          style: TextStyle(
-            fontSize: 9,
-            color: widget.isBlack ? Colors.white70 : Colors.black54,
-          ),
+        boxShadow: isBlack
+            ? const <BoxShadow>[
+                BoxShadow(
+                  blurRadius: 4,
+                  offset: Offset(0, 3),
+                  color: Colors.black54,
+                ),
+              ]
+            : null,
+      ),
+      alignment: Alignment.bottomCenter,
+      padding: EdgeInsets.only(bottom: isBlack ? 7 : 10),
+      child: Text(
+        MidiUtils.getNoteName(note),
+        style: TextStyle(
+          fontSize: 9,
+          color: isBlack ? Colors.white70 : Colors.black54,
         ),
       ),
     );
