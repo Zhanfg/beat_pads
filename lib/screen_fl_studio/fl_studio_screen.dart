@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:beat_pads/screen_midi_devices/_drawer_devices.dart';
 import 'package:beat_pads/services/services.dart';
 import 'package:flutter/material.dart';
@@ -6,9 +9,13 @@ import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum _TouchInstrument {
-  keyboard('Keyboard', Icons.piano),
-  drums('Drums', Icons.grid_view_rounded),
-  smartChords('Smart Chords', Icons.library_music_rounded);
+  keyboard('键盘', Icons.piano),
+  drums('鼓组', Icons.grid_view_rounded),
+  smartChords('智能和弦', Icons.library_music_rounded),
+  arpeggiator('琶音器', Icons.graphic_eq_rounded),
+  smartDrums('智能鼓机', Icons.auto_awesome_rounded),
+  beatSequencer('节拍音序器', Icons.grid_on_rounded),
+  liveLoops('现场循环', Icons.view_module_rounded);
 
   const _TouchInstrument(this.label, this.icon);
 
@@ -108,6 +115,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     final scaleRoot = ref.watch(flScaleRootProvider);
     final scaleLock = ref.watch(flScaleLockProvider);
     final touchDynamics = ref.watch(flTouchDynamicsProvider);
+    final tempo = ref.watch(flTempoProvider);
 
     final scheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF4A90E2),
@@ -172,7 +180,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Touch Instruments',
+                    '触控乐器',
                     style: Theme.of(sheetContext).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 14),
@@ -249,6 +257,35 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             onNoteOn: _noteOn,
             onNoteOff: _noteOff,
           );
+        case _TouchInstrument.arpeggiator:
+          return _ArpeggiatorView(
+            tempo: tempo,
+            scale: scale,
+            scaleRoot: scaleRoot,
+            velocity: velocity,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+          );
+        case _TouchInstrument.smartDrums:
+          return _SmartDrumsView(
+            tempo: tempo,
+            velocity: velocity,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+          );
+        case _TouchInstrument.beatSequencer:
+          return _BeatSequencerView(
+            tempo: tempo,
+            velocity: velocity,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+          );
+        case _TouchInstrument.liveLoops:
+          return _LiveLoopsView(
+            velocity: velocity,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+          );
       }
     }
 
@@ -291,6 +328,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                 scale: scale,
                 scaleRoot: scaleRoot,
                 scaleLock: scaleLock,
+                tempo: tempo,
               ),
             ],
           ),
@@ -347,7 +385,7 @@ class _GarageControlBar extends StatelessWidget {
                   icon: Icons.apps_rounded,
                 ),
                 _BarButton(
-                  tooltip: 'MIDI devices',
+                  tooltip: 'MIDI 设备',
                   onPressed: onOpenMidiDevices,
                   icon: connectedCount > 0
                       ? Icons.usb_rounded
@@ -371,40 +409,40 @@ class _GarageControlBar extends StatelessWidget {
                 ],
                 const Spacer(),
                 _BarButton(
-                  tooltip: 'Go to beginning · CC115',
+                  tooltip: '回到开头 · CC115',
                   onPressed: onGoToBeginning,
                   icon: Icons.skip_previous_rounded,
                 ),
                 _BarButton(
-                  tooltip: 'Stop · CC112',
+                  tooltip: '停止 · CC112',
                   onPressed: onStop,
                   icon: Icons.stop_rounded,
                 ),
                 _BarButton(
-                  tooltip: 'Play · CC111',
+                  tooltip: '播放 · CC111',
                   onPressed: onPlay,
                   icon: Icons.play_arrow_rounded,
                 ),
                 _BarButton(
-                  tooltip: 'Record · CC110',
+                  tooltip: '录制 · CC110',
                   onPressed: onRecord,
                   icon: Icons.fiber_manual_record_rounded,
                   foregroundColor: scheme.error,
                 ),
                 if (!compact)
                   _BarButton(
-                    tooltip: 'Metronome · CC114',
+                    tooltip: '节拍器 · CC114',
                     onPressed: onMetronome,
                     icon: Icons.timer_outlined,
                   ),
                 const Spacer(),
                 _BarButton(
-                  tooltip: 'Track Controls',
+                  tooltip: '轨道控制',
                   onPressed: onControls,
                   icon: Icons.tune_rounded,
                 ),
                 _BarButton(
-                  tooltip: 'Panic / all notes off',
+                  tooltip: '紧急停止 / 关闭全部音符',
                   onPressed: onPanic,
                   icon: Icons.warning_amber_rounded,
                 ),
@@ -549,6 +587,7 @@ class _InstrumentStatusBar extends StatelessWidget {
     required this.scale,
     required this.scaleRoot,
     required this.scaleLock,
+    required this.tempo,
   });
 
   final int channel;
@@ -556,6 +595,7 @@ class _InstrumentStatusBar extends StatelessWidget {
   final FlScale scale;
   final int scaleRoot;
   final bool scaleLock;
+  final int tempo;
 
   @override
   Widget build(BuildContext context) {
@@ -574,12 +614,17 @@ class _InstrumentStatusBar extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'CH ${channel + 1}',
+            '通道 ${channel + 1}',
             style: Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(width: 12),
           Text(
-            'VEL $velocity',
+            '力度 $velocity',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'BPM $tempo',
             style: Theme.of(context).textTheme.labelSmall,
           ),
           const Spacer(),
@@ -640,7 +685,7 @@ class _KeyboardInstrumentView extends StatelessWidget {
             Row(
               children: [
                 IconButton(
-                  tooltip: 'Octave down',
+                  tooltip: '降低八度',
                   onPressed: onOctaveDown,
                   icon: const Icon(Icons.remove_rounded),
                 ),
@@ -654,13 +699,13 @@ class _KeyboardInstrumentView extends StatelessWidget {
                   child: Text(MidiUtils.getNoteName(baseNote)),
                 ),
                 IconButton(
-                  tooltip: 'Octave up',
+                  tooltip: '升高八度',
                   onPressed: onOctaveUp,
                   icon: const Icon(Icons.add_rounded),
                 ),
                 const Spacer(),
                 FilterChip(
-                  label: const Text('Sustain'),
+                  label: const Text('延音'),
                   avatar: const Icon(Icons.pedal_bike_rounded, size: 14),
                   selected: sustain,
                   onSelected: onSustainChanged,
@@ -725,18 +770,18 @@ class _DrumsInstrumentView extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'Drum Kit',
+                  '鼓组',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const Spacer(),
                 IconButton(
-                  tooltip: 'Previous pad bank',
+                  tooltip: '上一组鼓垫',
                   onPressed: onBankDown,
                   icon: const Icon(Icons.chevron_left_rounded),
                 ),
                 Text('$baseNote–${baseNote + 15}'),
                 IconButton(
-                  tooltip: 'Next pad bank',
+                  tooltip: '下一组鼓垫',
                   onPressed: onBankUp,
                   icon: const Icon(Icons.chevron_right_rounded),
                 ),
@@ -804,14 +849,14 @@ class _SmartChordsView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Smart Chords',
+              '智能和弦',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 3),
             Text(
               scale == FlScale.chromatic
-                  ? 'Major-key chord set · choose a scale in Controls for modal voicings'
-                  : 'Chord strips follow ${scale.label}',
+                  ? '默认使用大调和弦；可在“轨道控制”中切换音阶与调式'
+                  : '和弦条跟随 ${scale.label}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
@@ -928,7 +973,7 @@ class _ChordPadState extends State<_ChordPad> {
             ),
             const SizedBox(height: 2),
             Text(
-              'Degree ${widget.degree}',
+              '第 ${widget.degree} 级',
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ],
@@ -938,6 +983,878 @@ class _ChordPadState extends State<_ChordPad> {
   }
 }
 
+
+
+class _ArpeggiatorView extends StatefulWidget {
+  const _ArpeggiatorView({
+    required this.tempo,
+    required this.scale,
+    required this.scaleRoot,
+    required this.velocity,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int tempo;
+  final FlScale scale;
+  final int scaleRoot;
+  final int velocity;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_ArpeggiatorView> createState() => _ArpeggiatorViewState();
+}
+
+class _ArpeggiatorViewState extends State<_ArpeggiatorView> {
+  Timer? _timer;
+  int _degree = 0;
+  int _rate = 16;
+  int _octaves = 2;
+  int _index = 0;
+  bool _running = false;
+  String _order = '上行';
+  final math.Random _random = math.Random();
+
+  List<int> get _scaleIntervals => widget.scale == FlScale.chromatic
+      ? const <int>[0, 2, 4, 5, 7, 9, 11]
+      : widget.scale.intervals;
+
+  List<int> _sequence() {
+    final intervals = _scaleIntervals;
+    final triad = <int>[];
+    for (final offset in const <int>[0, 2, 4]) {
+      final raw = _degree + offset;
+      final wrapped = raw % intervals.length;
+      final octave = raw ~/ intervals.length;
+      triad.add(48 + widget.scaleRoot + intervals[wrapped] + octave * 12);
+    }
+    final result = <int>[];
+    for (int octave = 0; octave < _octaves; octave++) {
+      result.addAll(triad.map((note) => note + octave * 12));
+    }
+    if (_order == '下行') return result.reversed.toList();
+    if (_order == '上下行' && result.length > 2) {
+      return <int>[
+        ...result,
+        ...result.sublist(1, result.length - 1).reversed,
+      ];
+    }
+    return result;
+  }
+
+  Duration _stepDuration() {
+    final ms = (60000 / widget.tempo * (4 / _rate)).round();
+    return Duration(milliseconds: ms.clamp(35, 1500));
+  }
+
+  void _restart() {
+    _timer?.cancel();
+    if (!_running) return;
+    final duration = _stepDuration();
+    _timer = Timer.periodic(duration, (_) => _tick(duration));
+  }
+
+  void _tick(Duration duration) {
+    final sequence = _sequence();
+    if (sequence.isEmpty) return;
+    final note = _order == '随机'
+        ? sequence[_random.nextInt(sequence.length)]
+        : sequence[_index % sequence.length];
+    _index = (_index + 1) % sequence.length;
+    widget.onNoteOn(note, velocity: widget.velocity);
+    Future<void>.delayed(
+      Duration(milliseconds: (duration.inMilliseconds * 0.72).round()),
+      () => widget.onNoteOff(note),
+    );
+  }
+
+  void _selectDegree(int degree) {
+    setState(() {
+      _degree = degree;
+      _index = 0;
+      _running = true;
+    });
+    _restart();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ArpeggiatorView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_running && oldWidget.tempo != widget.tempo) _restart();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final intervals = _scaleIntervals;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text('琶音器', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(width: 10),
+                Chip(label: Text('${widget.tempo} BPM')),
+                const Spacer(),
+                IconButton.filledTonal(
+                  tooltip: _running ? '停止琶音' : '继续琶音',
+                  onPressed: () {
+                    setState(() => _running = !_running);
+                    _restart();
+                  },
+                  icon: Icon(
+                    _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '点击音级后锁定并持续演奏；再次选择音级可实时转调。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final value in <int>[8, 16, 32])
+                  ChoiceChip(
+                    label: Text('1/$value'),
+                    selected: _rate == value,
+                    onSelected: (_) {
+                      setState(() => _rate = value);
+                      _restart();
+                    },
+                  ),
+                for (final value in <String>['上行', '下行', '上下行', '随机'])
+                  ChoiceChip(
+                    label: Text(value),
+                    selected: _order == value,
+                    onSelected: (_) {
+                      setState(() {
+                        _order = value;
+                        _index = 0;
+                      });
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text('八度范围'),
+                Expanded(
+                  child: Slider(
+                    min: 1,
+                    max: 4,
+                    divisions: 3,
+                    value: _octaves.toDouble(),
+                    label: '$_octaves',
+                    onChanged: (value) {
+                      setState(() {
+                        _octaves = value.round();
+                        _index = 0;
+                      });
+                    },
+                  ),
+                ),
+                Text('$_octaves'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: intervals.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: math.min(intervals.length, 7),
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 0.9,
+                ),
+                itemBuilder: (context, degree) {
+                  final midi = 60 + widget.scaleRoot + intervals[degree];
+                  final name = MidiUtils.getNoteName(
+                    midi,
+                    showOctaveIndex: false,
+                  );
+                  return FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: degree == _degree && _running
+                          ? scheme.primaryContainer
+                          : null,
+                    ),
+                    onPressed: () => _selectDegree(degree),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          name,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text('第 ${degree + 1} 级'),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SmartDrumsView extends StatefulWidget {
+  const _SmartDrumsView({
+    required this.tempo,
+    required this.velocity,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int tempo;
+  final int velocity;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_SmartDrumsView> createState() => _SmartDrumsViewState();
+}
+
+class _SmartDrumsViewState extends State<_SmartDrumsView> {
+  static const List<int> _notes = <int>[36, 38, 42, 39];
+  static const List<String> _labels = <String>['底鼓', '军鼓', '踩镲', '拍手'];
+  static const List<IconData> _icons = <IconData>[
+    Icons.album_rounded,
+    Icons.circle_outlined,
+    Icons.change_history_rounded,
+    Icons.front_hand_rounded,
+  ];
+
+  Timer? _timer;
+  bool _running = false;
+  int _step = 0;
+  List<Offset> _positions = <Offset>[
+    const Offset(0.28, 0.58),
+    const Offset(0.46, 0.42),
+    const Offset(0.68, 0.26),
+    const Offset(0.58, 0.64),
+  ];
+  final math.Random _random = math.Random();
+
+  Duration get _stepDuration => Duration(
+        milliseconds: (60000 / widget.tempo / 4).round().clamp(35, 1500),
+      );
+
+  void _restart() {
+    _timer?.cancel();
+    if (!_running) return;
+    _timer = Timer.periodic(_stepDuration, (_) => _tick());
+  }
+
+  bool _shouldHit(int index, Offset pos) {
+    final complexity = (pos.dx * 3).round().clamp(0, 3);
+    final patterns = <List<int>>[
+      <int>[0, 8],
+      <int>[0, 4, 8, 12],
+      <int>[0, 3, 4, 7, 8, 11, 12, 15],
+      List<int>.generate(16, (i) => i),
+    ];
+    final step = (_step + <int>[0, 4, 0, 12][index]) % 16;
+    return patterns[complexity].contains(step);
+  }
+
+  void _tick() {
+    for (int i = 0; i < _positions.length; i++) {
+      final pos = _positions[i];
+      if (!_shouldHit(i, pos)) continue;
+      final intensity = (1 - pos.dy).clamp(0.0, 1.0);
+      final velocity =
+          (28 + intensity * 99).round().clamp(1, 127).toInt();
+      final note = _notes[i];
+      widget.onNoteOn(note, velocity: velocity);
+      Future<void>.delayed(
+        const Duration(milliseconds: 48),
+        () => widget.onNoteOff(note),
+      );
+    }
+    if (mounted) setState(() => _step = (_step + 1) % 16);
+  }
+
+  void _randomize() {
+    setState(() {
+      _positions = List<Offset>.generate(
+        4,
+        (_) => Offset(
+          0.12 + _random.nextDouble() * 0.78,
+          0.10 + _random.nextDouble() * 0.78,
+        ),
+      );
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _SmartDrumsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_running && oldWidget.tempo != widget.tempo) _restart();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text('智能鼓机', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(width: 8),
+                Chip(label: Text('${widget.tempo} BPM')),
+                const Spacer(),
+                IconButton(
+                  tooltip: '随机生成',
+                  onPressed: _randomize,
+                  icon: const Icon(Icons.casino_rounded),
+                ),
+                IconButton(
+                  tooltip: '重置',
+                  onPressed: () => setState(() {
+                    _positions = <Offset>[
+                      const Offset(0.28, 0.58),
+                      const Offset(0.46, 0.42),
+                      const Offset(0.68, 0.26),
+                      const Offset(0.58, 0.64),
+                    ];
+                  }),
+                  icon: const Icon(Icons.restart_alt_rounded),
+                ),
+                IconButton.filled(
+                  tooltip: _running ? '停止' : '播放',
+                  onPressed: () {
+                    setState(() => _running = !_running);
+                    _restart();
+                  },
+                  icon: Icon(
+                    _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = Size(
+                    constraints.maxWidth,
+                    constraints.maxHeight,
+                  );
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: scheme.outlineVariant),
+                    ),
+                    child: Stack(
+                      children: [
+                        for (int i = 1; i < 4; i++) ...[
+                          Positioned(
+                            left: size.width * i / 4,
+                            top: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 1,
+                              color: scheme.outlineVariant,
+                            ),
+                          ),
+                          Positioned(
+                            top: size.height * i / 4,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              height: 1,
+                              color: scheme.outlineVariant,
+                            ),
+                          ),
+                        ],
+                        const Positioned(
+                          left: 10,
+                          top: 8,
+                          child: Text('更响 ↑'),
+                        ),
+                        const Positioned(
+                          right: 10,
+                          bottom: 8,
+                          child: Text('更复杂 →'),
+                        ),
+                        for (int i = 0; i < _positions.length; i++)
+                          Positioned(
+                            left: _positions[i].dx * (size.width - 58),
+                            top: _positions[i].dy * (size.height - 58),
+                            child: GestureDetector(
+                              onTap: () {
+                                final note = _notes[i];
+                                widget.onNoteOn(
+                                  note,
+                                  velocity: widget.velocity,
+                                );
+                                Future<void>.delayed(
+                                  const Duration(milliseconds: 70),
+                                  () => widget.onNoteOff(note),
+                                );
+                              },
+                              onPanUpdate: (details) {
+                                setState(() {
+                                  final current = _positions[i];
+                                  _positions[i] = Offset(
+                                    (current.dx +
+                                            details.delta.dx /
+                                                math.max(1, size.width - 58))
+                                        .clamp(0.0, 1.0),
+                                    (current.dy +
+                                            details.delta.dy /
+                                                math.max(1, size.height - 58))
+                                        .clamp(0.0, 1.0),
+                                  );
+                                });
+                              },
+                              child: Container(
+                                width: 58,
+                                height: 58,
+                                decoration: BoxDecoration(
+                                  color: scheme.primaryContainer,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: scheme.primary),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(_icons[i], size: 20),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _labels[i],
+                                      style:
+                                          Theme.of(context).textTheme.labelSmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BeatSequencerView extends StatefulWidget {
+  const _BeatSequencerView({
+    required this.tempo,
+    required this.velocity,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int tempo;
+  final int velocity;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_BeatSequencerView> createState() => _BeatSequencerViewState();
+}
+
+class _BeatSequencerViewState extends State<_BeatSequencerView> {
+  static const List<int> _notes = <int>[36, 38, 42, 39];
+  static const List<String> _labels = <String>['底鼓', '军鼓', '踩镲', '拍手'];
+  Timer? _timer;
+  bool _running = false;
+  int _step = 0;
+  late List<List<bool>> _grid;
+  final math.Random _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _grid = List<List<bool>>.generate(
+      4,
+      (row) => List<bool>.generate(16, (step) {
+        if (row == 0) return step % 4 == 0;
+        if (row == 1) return step == 4 || step == 12;
+        if (row == 2) return step.isEven;
+        return step == 12;
+      }),
+    );
+  }
+
+  Duration get _stepDuration => Duration(
+        milliseconds: (60000 / widget.tempo / 4).round().clamp(35, 1500),
+      );
+
+  void _restart() {
+    _timer?.cancel();
+    if (!_running) return;
+    _timer = Timer.periodic(_stepDuration, (_) => _tick());
+  }
+
+  void _tick() {
+    for (int row = 0; row < _grid.length; row++) {
+      if (!_grid[row][_step]) continue;
+      final note = _notes[row];
+      widget.onNoteOn(note, velocity: widget.velocity);
+      Future<void>.delayed(
+        const Duration(milliseconds: 45),
+        () => widget.onNoteOff(note),
+      );
+    }
+    if (mounted) setState(() => _step = (_step + 1) % 16);
+  }
+
+  @override
+  void didUpdateWidget(covariant _BeatSequencerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_running && oldWidget.tempo != widget.tempo) _restart();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _randomize() {
+    setState(() {
+      for (int row = 0; row < _grid.length; row++) {
+        final probability = <double>[0.28, 0.18, 0.48, 0.16][row];
+        for (int step = 0; step < 16; step++) {
+          _grid[row][step] = _random.nextDouble() < probability;
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text('节拍音序器', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(width: 8),
+                Chip(label: Text('${widget.tempo} BPM · 1/16')),
+                const Spacer(),
+                IconButton(
+                  tooltip: '随机生成',
+                  onPressed: _randomize,
+                  icon: const Icon(Icons.casino_rounded),
+                ),
+                IconButton(
+                  tooltip: '清空',
+                  onPressed: () => setState(() {
+                    _grid = List<List<bool>>.generate(
+                      4,
+                      (_) => List<bool>.filled(16, false),
+                    );
+                  }),
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                ),
+                IconButton.filled(
+                  tooltip: _running ? '停止' : '播放',
+                  onPressed: () {
+                    setState(() => _running = !_running);
+                    _restart();
+                  },
+                  icon: Icon(
+                    _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: 720,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(width: 64),
+                          for (int step = 0; step < 16; step++)
+                            SizedBox(
+                              width: 40,
+                              child: Center(
+                                child: Text(
+                                  '${step + 1}',
+                                  style:
+                                      Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      for (int row = 0; row < 4; row++) ...[
+                        Expanded(
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 64,
+                                child: Text(
+                                  _labels[row],
+                                  style:
+                                      Theme.of(context).textTheme.labelMedium,
+                                ),
+                              ),
+                              for (int step = 0; step < 16; step++)
+                                SizedBox(
+                                  width: 40,
+                                  height: double.infinity,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(7),
+                                      onTap: () {
+                                        setState(() =>
+                                            _grid[row][step] =
+                                                !_grid[row][step]);
+                                      },
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 55),
+                                        decoration: BoxDecoration(
+                                          color: _grid[row][step]
+                                              ? step == _step && _running
+                                                  ? scheme.primary
+                                                  : scheme.primaryContainer
+                                              : step == _step && _running
+                                                  ? scheme
+                                                      .surfaceContainerHighest
+                                                  : scheme.surfaceContainerLow,
+                                          borderRadius:
+                                              BorderRadius.circular(7),
+                                          border: Border.all(
+                                            color: step % 4 == 0
+                                                ? scheme.outline
+                                                : scheme.outlineVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveLoopsView extends StatefulWidget {
+  const _LiveLoopsView({
+    required this.velocity,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int velocity;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_LiveLoopsView> createState() => _LiveLoopsViewState();
+}
+
+class _LiveLoopsViewState extends State<_LiveLoopsView> {
+  static const int _rows = 4;
+  static const int _columns = 5;
+  late List<List<bool>> _active;
+
+  @override
+  void initState() {
+    super.initState();
+    _active = List<List<bool>>.generate(
+      _rows,
+      (_) => List<bool>.filled(_columns, false),
+    );
+  }
+
+  int _noteFor(int row, int column) => 60 + row * _columns + column;
+
+  void _trigger(int row, int column) {
+    final note = _noteFor(row, column);
+    widget.onNoteOn(note, velocity: widget.velocity);
+    Future<void>.delayed(
+      const Duration(milliseconds: 70),
+      () => widget.onNoteOff(note),
+    );
+    setState(() {
+      for (int c = 0; c < _columns; c++) {
+        _active[row][c] = c == column;
+      }
+    });
+  }
+
+  void _launchScene(int column) {
+    HapticFeedback.mediumImpact();
+    for (int row = 0; row < _rows; row++) {
+      _trigger(row, column);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('现场循环', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 3),
+            Text(
+              'MIDI 触发矩阵：可将每个格子的音符映射到 FL Studio Performance Mode、Clip 或场景。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const SizedBox(width: 62),
+                      for (int column = 0;
+                          column < _columns;
+                          column++)
+                        Expanded(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 3),
+                            child: FilledButton.tonal(
+                              onPressed: () => _launchScene(column),
+                              child: Text('场景 ${column + 1}'),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  for (int row = 0; row < _rows; row++)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 62,
+                            child: Text(
+                              '轨道 ${row + 1}',
+                              style: Theme.of(context).textTheme.labelMedium,
+                            ),
+                          ),
+                          for (int column = 0;
+                              column < _columns;
+                              column++)
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(3),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(11),
+                                  onTap: () => _trigger(row, column),
+                                  child: AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 90),
+                                    decoration: BoxDecoration(
+                                      color: _active[row][column]
+                                          ? scheme.primaryContainer
+                                          : scheme.surfaceContainerHigh,
+                                      borderRadius: BorderRadius.circular(11),
+                                      border: Border.all(
+                                        color: _active[row][column]
+                                            ? scheme.primary
+                                            : scheme.outlineVariant,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _active[row][column]
+                                              ? Icons.play_arrow_rounded
+                                              : Icons
+                                                  .play_circle_outline_rounded,
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'N${_noteFor(row, column)}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _ControlArea extends ConsumerWidget {
   const _ControlArea({
@@ -969,6 +1886,7 @@ class _ControlArea extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final tempo = ref.watch(flTempoProvider);
 
     return Padding(
       padding: const EdgeInsets.all(14),
@@ -976,12 +1894,42 @@ class _ControlArea extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
         _SectionCard(
-          title: 'TRACK',
+          title: '轨道',
           child: Row(
             children: [
-              Expanded(child: _Metric(label: 'CHANNEL', value: '${channel + 1}')),
+              Expanded(child: _Metric(label: '通道', value: '${channel + 1}')),
               const SizedBox(width: 8),
-              Expanded(child: _Metric(label: 'VELOCITY', value: '$velocity')),
+              Expanded(child: _Metric(label: '力度', value: '$velocity')),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SectionCard(
+          title: '乐曲设置',
+          subtitle: '供琶音器、智能鼓机与节拍音序器使用。',
+          child: Row(
+            children: [
+              const SizedBox(width: 46, child: Text('速度')),
+              Expanded(
+                child: Slider(
+                  min: 40,
+                  max: 240,
+                  divisions: 200,
+                  value: tempo.toDouble(),
+                  onChanged: (value) {
+                    ref
+                        .read(flTempoProvider.notifier)
+                        .setAndSave(value.round());
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 70,
+                child: Text(
+                  '$tempo BPM',
+                  textAlign: TextAlign.end,
+                ),
+              ),
             ],
           ),
         ),
@@ -991,28 +1939,28 @@ class _ControlArea extends ConsumerWidget {
         _SmartAssistCard(),
         const SizedBox(height: 10),
         _SectionCard(
-          title: 'REMIX FX',
-          subtitle: 'Two-axis continuous control. Defaults: X=CC74, Y=CC71.',
+          title: '混音效果',
+          subtitle: '双轴连续控制；默认 X=CC74、Y=CC71。',
           child: _XyControlPad(
             onCc: onCc,
           ),
         ),
         const SizedBox(height: 10),
         _SectionCard(
-          title: 'PLUG-IN CONTROLS',
-          subtitle: 'Four assignable CC macros for FL Studio Link to controller.',
+          title: '插件控制',
+          subtitle: '4 个可重新指定的 CC 宏，可用于 FL Studio“链接到控制器”。',
           child: _MacroDeck(
             onCc: onCc,
           ),
         ),
         const SizedBox(height: 10),
         _SectionCard(
-          title: 'KEYBOARD CONTROLS',
+          title: '键盘控制',
           child: Column(
             children: [
               Row(
                 children: [
-                  const SizedBox(width: 52, child: Text('Pitch')),
+                  const SizedBox(width: 52, child: Text('弯音')),
                   Expanded(
                     child: Slider(
                       min: -1,
@@ -1030,7 +1978,7 @@ class _ControlArea extends ConsumerWidget {
               ),
               Row(
                 children: [
-                  const SizedBox(width: 52, child: Text('Mod')),
+                  const SizedBox(width: 52, child: Text('调制')),
                   Expanded(
                     child: Slider(
                       min: 0,
@@ -1048,7 +1996,7 @@ class _ControlArea extends ConsumerWidget {
               SwitchListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Sustain · CC64'),
+                title: const Text('延音 · CC64'),
                 value: sustain,
                 onChanged: onSustainChanged,
               ),
@@ -1063,7 +2011,7 @@ class _ControlArea extends ConsumerWidget {
           ),
           onPressed: onPanic,
           icon: const Icon(Icons.warning_amber_rounded),
-          label: const Text('PANIC · ALL NOTES OFF'),
+          label: const Text('紧急停止 · 关闭全部音符'),
         ),
       ],
       ),
@@ -1080,8 +2028,8 @@ class _StudioProfiles extends ConsumerWidget {
     final current = ref.watch(presetNotifierProvider);
 
     return _SectionCard(
-      title: 'SOUNDS',
-      subtitle: 'Five persistent scenes. MIDI/channel settings follow the selected scene.',
+      title: '场景',
+      subtitle: '5 个持久化场景；MIDI 与通道设置会跟随当前场景。',
       child: Wrap(
         spacing: 6,
         runSpacing: 6,
@@ -1113,8 +2061,8 @@ class _SmartAssistCard extends ConsumerWidget {
     final touchDynamics = ref.watch(flTouchDynamicsProvider);
 
     return _SectionCard(
-      title: 'SMART CONTROLS',
-      subtitle: 'Performance helpers stay local and never add a MIDI buffering layer.',
+      title: '智能控制',
+      subtitle: '演奏辅助全部在本机处理，不额外增加 MIDI 缓冲层。',
       child: Column(
         children: [
           Row(
@@ -1124,7 +2072,7 @@ class _SmartAssistCard extends ConsumerWidget {
                   value: scale,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Scale',
+                    labelText: '音阶',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -1149,7 +2097,7 @@ class _SmartAssistCard extends ConsumerWidget {
                   value: root,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Root',
+                    labelText: '根音',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -1178,8 +2126,8 @@ class _SmartAssistCard extends ConsumerWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
-            title: const Text('Scale Lock'),
-            subtitle: const Text('Disable keys outside the selected scale.'),
+            title: const Text('音阶锁定'),
+            subtitle: const Text('关闭所选音阶之外的琴键。'),
             value: scaleLock,
             onChanged: (value) {
               HapticFeedback.selectionClick();
@@ -1189,9 +2137,9 @@ class _SmartAssistCard extends ConsumerWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
-            title: const Text('Touch Dynamics'),
+            title: const Text('触控力度'),
             subtitle: const Text(
-              'Use hardware pressure for Velocity when available; otherwise keep fixed Velocity.',
+              '屏幕支持压力时映射为力度；不支持时自动使用固定力度。',
             ),
             value: touchDynamics,
             onChanged: (value) {
@@ -1226,8 +2174,8 @@ Future<void> _showCcEditor(
             LengthLimitingTextInputFormatter(3),
           ],
           decoration: const InputDecoration(
-            labelText: 'Controller number',
-            helperText: '0–127',
+            labelText: '控制器编号',
+            helperText: '范围 0–127',
             border: OutlineInputBorder(),
           ),
           onSubmitted: (text) {
@@ -1240,7 +2188,7 @@ Future<void> _showCcEditor(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () {
@@ -1249,7 +2197,7 @@ Future<void> _showCcEditor(
                 Navigator.pop(dialogContext, value);
               }
             },
-            child: const Text('Save'),
+            child: const Text('保存'),
           ),
         ],
       );
@@ -1302,7 +2250,7 @@ class _XyControlPadState extends ConsumerState<_XyControlPad> {
                 value: (_position.dx * 127).round(),
                 onTap: () => _showCcEditor(
                   context,
-                  label: 'XY X',
+                  label: 'XY 横轴',
                   current: xCc,
                   onSave: (value) =>
                       ref.read(flXyXCcProvider.notifier).setAndSave(value),
@@ -1317,7 +2265,7 @@ class _XyControlPadState extends ConsumerState<_XyControlPad> {
                 value: (_position.dy * 127).round(),
                 onTap: () => _showCcEditor(
                   context,
-                  label: 'XY Y',
+                  label: 'XY 纵轴',
                   current: yCc,
                   onSave: (value) =>
                       ref.read(flXyYCcProvider.notifier).setAndSave(value),
@@ -1477,7 +2425,7 @@ class _MacroDeck extends ConsumerWidget {
             onChanged: (value) => onCc(controllers[i], value),
             onEdit: () => _showCcEditor(
               context,
-              label: 'Macro ${i + 1}',
+              label: '宏 ${i + 1}',
               current: controllers[i],
               onSave: (value) =>
                   ref.read(providers[i].notifier).setAndSave(value),
