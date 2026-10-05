@@ -21,6 +21,7 @@ dependencies:
     #   ref: master
 
   flutter_riverpod: ^2.6.1
+  flutter_soloud: ^5.1.5
   rive: ^0.14.10
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.1
