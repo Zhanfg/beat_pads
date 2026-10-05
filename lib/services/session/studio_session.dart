@@ -84,7 +84,7 @@ final class StudioSession extends ChangeNotifier {
           note: pending.note,
           velocity: pending.velocity,
           startMicros: pending.startMicros,
-          durationMicros: (now - pending.startMicros).clamp(1000, now),
+          durationMicros: (now - pending.startMicros).clamp(1000, now).toInt(),
         ),
       );
     }
