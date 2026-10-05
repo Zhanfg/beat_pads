@@ -1,3 +1,4 @@
+export 'audio/local_synth.dart';
 export 'classes/data_classes.dart';
 export 'constants/const_colors.dart';
 export 'constants/const_device.dart';
