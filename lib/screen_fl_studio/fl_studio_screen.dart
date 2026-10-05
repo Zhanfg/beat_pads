@@ -3202,8 +3202,11 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
     }
 
     final whiteWidth = size.width / whiteNotes.length;
-    final blackWidth = whiteWidth * 0.62;
-    final blackHeight = size.height * 0.62;
+    final blackWidth = whiteWidth * 0.58;
+    final blackHeight = math.min(
+      size.height * 0.55,
+      size.width * 0.62,
+    );
 
     if (position.dy <= blackHeight) {
       for (final note in notes.where(_isBlack)) {
@@ -3294,8 +3297,11 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
         final whiteWidth = size.width / whiteNotes.length;
-        final blackWidth = whiteWidth * 0.62;
-        final blackHeight = size.height * 0.62;
+        final blackWidth = whiteWidth * 0.58;
+        final blackHeight = math.min(
+      size.height * 0.55,
+      size.width * 0.62,
+    );
 
         return Listener(
           behavior: HitTestBehavior.opaque,
@@ -3417,13 +3423,15 @@ class _PianoKeyVisual extends StatelessWidget {
       ),
       alignment: Alignment.bottomCenter,
       padding: EdgeInsets.only(bottom: isBlack ? 7 : 10),
-      child: Text(
-        MidiUtils.getNoteName(note),
-        style: TextStyle(
-          fontSize: 9,
-          color: isBlack ? Colors.white70 : Colors.black54,
-        ),
-      ),
+      child: !isBlack && note % 12 == 0
+          ? Text(
+              MidiUtils.getNoteName(note),
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.black54,
+              ),
+            )
+          : null,
     );
   }
 }
