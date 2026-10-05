@@ -116,7 +116,7 @@ class PadMenuScreen extends ConsumerWidget {
 
           actions: [
             IconButton(
-              tooltip: 'FL Studio Controller',
+              tooltip: 'FL Studio 控制器',
               onPressed: () {
                 Navigator.push(
                   context,
@@ -208,22 +208,22 @@ class PadMenuScreen extends ConsumerWidget {
                     child: Icon(Icons.apps, color: Palette.cadetBlue),
                   ),
 
-                  label: 'Layout',
+                  label: '布局',
                 ),
                 BottomNavigationBarItem(
                   activeIcon: Icon(Icons.music_note, color: Palette.cadetBlue),
                   icon: const Icon(Icons.music_note),
-                  label: 'Midi',
+                  label: 'MIDI',
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.touch_app),
                   activeIcon: Icon(Icons.touch_app, color: Palette.cadetBlue),
-                  label: 'Advanced',
+                  label: '高级',
                 ),
                 BottomNavigationBarItem(
                   activeIcon: Icon(Icons.settings, color: Palette.cadetBlue),
                   icon: const Icon(Icons.settings),
-                  label: 'System',
+                  label: '系统',
                 ),
               ],
             ),
