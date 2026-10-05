@@ -207,6 +207,8 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             scaleRoot: scaleRoot,
             scaleLock: scaleLock,
             touchDynamics: touchDynamics,
+            sustain: _sustain,
+            onSustainChanged: _setSustain,
             onNoteOn: _noteOn,
             onNoteOff: _noteOff,
             onOctaveDown: () {
@@ -333,75 +335,116 @@ class _GarageControlBar extends StatelessWidget {
     return Material(
       color: const Color(0xFF202020),
       child: SizedBox(
-        height: 56,
-        child: Row(
-          children: [
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Touch Instruments',
-              onPressed: onOpenInstrumentBrowser,
-              icon: const Icon(Icons.apps_rounded),
-            ),
-            IconButton(
-              tooltip: 'MIDI devices',
-              onPressed: onOpenMidiDevices,
-              icon: Icon(
-                connectedCount > 0 ? Icons.usb_rounded : Icons.usb_off_rounded,
-                color: connectedCount > 0 ? scheme.primary : null,
-              ),
-            ),
-            const VerticalDivider(width: 1, indent: 12, endIndent: 12),
-            const SizedBox(width: 8),
-            Icon(instrument.icon, size: 19),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                instrument.label,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            const Spacer(),
-            IconButton(
-              tooltip: 'Go to beginning · CC115',
-              onPressed: onGoToBeginning,
-              icon: const Icon(Icons.skip_previous_rounded),
-            ),
-            IconButton(
-              tooltip: 'Stop · CC112',
-              onPressed: onStop,
-              icon: const Icon(Icons.stop_rounded),
-            ),
-            IconButton(
-              tooltip: 'Play · CC111',
-              onPressed: onPlay,
-              icon: const Icon(Icons.play_arrow_rounded),
-            ),
-            IconButton(
-              tooltip: 'Record · CC110',
-              onPressed: onRecord,
-              icon: Icon(Icons.fiber_manual_record_rounded, color: scheme.error),
-            ),
-            IconButton(
-              tooltip: 'Metronome · CC114',
-              onPressed: onMetronome,
-              icon: const Icon(Icons.timer_outlined),
-            ),
-            const Spacer(),
-            IconButton(
-              tooltip: 'Track Controls',
-              onPressed: onControls,
-              icon: const Icon(Icons.tune_rounded),
-            ),
-            IconButton(
-              tooltip: 'Panic / all notes off',
-              onPressed: onPanic,
-              icon: const Icon(Icons.warning_amber_rounded),
-            ),
-            const SizedBox(width: 4),
-          ],
+        height: 54,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 620;
+            return Row(
+              children: [
+                const SizedBox(width: 2),
+                _BarButton(
+                  tooltip: 'Touch Instruments',
+                  onPressed: onOpenInstrumentBrowser,
+                  icon: Icons.apps_rounded,
+                ),
+                _BarButton(
+                  tooltip: 'MIDI devices',
+                  onPressed: onOpenMidiDevices,
+                  icon: connectedCount > 0
+                      ? Icons.usb_rounded
+                      : Icons.usb_off_rounded,
+                  foregroundColor:
+                      connectedCount > 0 ? scheme.primary : null,
+                ),
+                if (!compact) ...[
+                  const VerticalDivider(
+                    width: 1,
+                    indent: 11,
+                    endIndent: 11,
+                  ),
+                  const SizedBox(width: 9),
+                  Icon(instrument.icon, size: 18),
+                  const SizedBox(width: 7),
+                  Text(
+                    instrument.label,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+                const Spacer(),
+                _BarButton(
+                  tooltip: 'Go to beginning · CC115',
+                  onPressed: onGoToBeginning,
+                  icon: Icons.skip_previous_rounded,
+                ),
+                _BarButton(
+                  tooltip: 'Stop · CC112',
+                  onPressed: onStop,
+                  icon: Icons.stop_rounded,
+                ),
+                _BarButton(
+                  tooltip: 'Play · CC111',
+                  onPressed: onPlay,
+                  icon: Icons.play_arrow_rounded,
+                ),
+                _BarButton(
+                  tooltip: 'Record · CC110',
+                  onPressed: onRecord,
+                  icon: Icons.fiber_manual_record_rounded,
+                  foregroundColor: scheme.error,
+                ),
+                if (!compact)
+                  _BarButton(
+                    tooltip: 'Metronome · CC114',
+                    onPressed: onMetronome,
+                    icon: Icons.timer_outlined,
+                  ),
+                const Spacer(),
+                _BarButton(
+                  tooltip: 'Track Controls',
+                  onPressed: onControls,
+                  icon: Icons.tune_rounded,
+                ),
+                _BarButton(
+                  tooltip: 'Panic / all notes off',
+                  onPressed: onPanic,
+                  icon: Icons.warning_amber_rounded,
+                ),
+                const SizedBox(width: 2),
+              ],
+            );
+          },
         ),
       ),
+    );
+  }
+}
+
+class _BarButton extends StatelessWidget {
+  const _BarButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+    this.foregroundColor,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+  final IconData icon;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(40, 40),
+        maximumSize: const Size(42, 42),
+        padding: const EdgeInsets.all(8),
+        foregroundColor: foregroundColor,
+      ),
+      icon: Icon(icon, size: 21),
     );
   }
 }
@@ -565,6 +608,8 @@ class _KeyboardInstrumentView extends StatelessWidget {
     required this.scaleRoot,
     required this.scaleLock,
     required this.touchDynamics,
+    required this.sustain,
+    required this.onSustainChanged,
     required this.onNoteOn,
     required this.onNoteOff,
     required this.onOctaveDown,
@@ -577,6 +622,8 @@ class _KeyboardInstrumentView extends StatelessWidget {
   final int scaleRoot;
   final bool scaleLock;
   final bool touchDynamics;
+  final bool sustain;
+  final ValueChanged<bool> onSustainChanged;
   final void Function(int note, {int? velocity}) onNoteOn;
   final ValueChanged<int> onNoteOff;
   final VoidCallback onOctaveDown;
@@ -613,6 +660,13 @@ class _KeyboardInstrumentView extends StatelessWidget {
                   icon: const Icon(Icons.add_rounded),
                 ),
                 const Spacer(),
+                FilterChip(
+                  label: const Text('Sustain'),
+                  avatar: const Icon(Icons.pedal_bike_rounded, size: 14),
+                  selected: sustain,
+                  onSelected: onSustainChanged,
+                ),
+                const SizedBox(width: 8),
                 if (scaleLock)
                   Chip(
                     visualDensity: VisualDensity.compact,
@@ -623,7 +677,7 @@ class _KeyboardInstrumentView extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Expanded(
-              child: _ChromaticKeyboard(
+              child: _PianoKeyboard(
                 baseNote: baseNote,
                 noteCount: 37,
                 velocity: velocity,
@@ -1634,6 +1688,235 @@ int _velocityFromTouch(
     }
   }
   return fallback;
+}
+
+
+class _PianoKeyboard extends StatelessWidget {
+  const _PianoKeyboard({
+    required this.baseNote,
+    required this.noteCount,
+    required this.velocity,
+    required this.scale,
+    required this.scaleRoot,
+    required this.scaleLock,
+    required this.touchDynamics,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int baseNote;
+  final int noteCount;
+  final int velocity;
+  final FlScale scale;
+  final int scaleRoot;
+  final bool scaleLock;
+  final bool touchDynamics;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  static const Set<int> _blackPitchClasses = <int>{1, 3, 6, 8, 10};
+
+  bool _isBlack(int note) => _blackPitchClasses.contains(note % 12);
+
+  @override
+  Widget build(BuildContext context) {
+    final notes = <int>[
+      for (int i = 0; i < noteCount; i++)
+        (baseNote + i).clamp(0, 127).toInt(),
+    ];
+    final whiteNotes = notes.where((note) => !_isBlack(note)).toList();
+    const whiteWidth = 52.0;
+    const blackWidth = 32.0;
+    final totalWidth = whiteNotes.length * whiteWidth;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final blackHeight = constraints.maxHeight * 0.62;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: SizedBox(
+            width: totalWidth,
+            height: constraints.maxHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (int i = 0; i < whiteNotes.length; i++)
+                  Positioned(
+                    left: i * whiteWidth,
+                    top: 0,
+                    bottom: 0,
+                    width: whiteWidth,
+                    child: _PianoKey(
+                      note: whiteNotes[i],
+                      velocity: velocity,
+                      isBlack: false,
+                      enabled:
+                          !scaleLock ||
+                          scale.containsNote(whiteNotes[i], scaleRoot),
+                      inScale: scale.containsNote(
+                        whiteNotes[i],
+                        scaleRoot,
+                      ),
+                      touchDynamics: touchDynamics,
+                      onNoteOn: onNoteOn,
+                      onNoteOff: onNoteOff,
+                    ),
+                  ),
+                for (final note in notes.where(_isBlack))
+                  Positioned(
+                    left:
+                        notes
+                                .takeWhile((candidate) => candidate < note)
+                                .where((candidate) => !_isBlack(candidate))
+                                .length *
+                            whiteWidth -
+                        blackWidth / 2,
+                    top: 0,
+                    width: blackWidth,
+                    height: blackHeight,
+                    child: _PianoKey(
+                      note: note,
+                      velocity: velocity,
+                      isBlack: true,
+                      enabled:
+                          !scaleLock || scale.containsNote(note, scaleRoot),
+                      inScale: scale.containsNote(note, scaleRoot),
+                      touchDynamics: touchDynamics,
+                      onNoteOn: onNoteOn,
+                      onNoteOff: onNoteOff,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PianoKey extends StatefulWidget {
+  const _PianoKey({
+    required this.note,
+    required this.velocity,
+    required this.isBlack,
+    required this.enabled,
+    required this.inScale,
+    required this.touchDynamics,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int note;
+  final int velocity;
+  final bool isBlack;
+  final bool enabled;
+  final bool inScale;
+  final bool touchDynamics;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_PianoKey> createState() => _PianoKeyState();
+}
+
+class _PianoKeyState extends State<_PianoKey> {
+  final Set<int> _pointers = <int>{};
+
+  bool get _active => _pointers.isNotEmpty;
+
+  void _down(PointerDownEvent event) {
+    if (!widget.enabled) return;
+    if (_pointers.isEmpty) {
+      widget.onNoteOn(
+        widget.note,
+        velocity: _velocityFromTouch(
+          event,
+          widget.velocity,
+          widget.touchDynamics,
+        ),
+      );
+    }
+    _pointers.add(event.pointer);
+    if (mounted) setState(() {});
+  }
+
+  void _up(int pointer) {
+    _pointers.remove(pointer);
+    if (_pointers.isEmpty) widget.onNoteOff(widget.note);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final disabled = widget.isBlack
+        ? const Color(0xFF242424)
+        : const Color(0xFFB9B9B9);
+    final base = widget.isBlack
+        ? const Color(0xFF242424)
+        : const Color(0xFFF1F1F1);
+    final scaleTint = widget.isBlack
+        ? Color.lerp(const Color(0xFF242424), scheme.primary, 0.28)!
+        : Color.lerp(const Color(0xFFF1F1F1), scheme.primary, 0.16)!;
+    final active = widget.isBlack
+        ? Color.lerp(const Color(0xFF242424), scheme.primary, 0.58)!
+        : scheme.primaryContainer;
+
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _down,
+      onPointerUp: (event) => _up(event.pointer),
+      onPointerCancel: (event) => _up(event.pointer),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 42),
+        margin: EdgeInsets.fromLTRB(
+          widget.isBlack ? 1.5 : 0.7,
+          0,
+          widget.isBlack ? 1.5 : 0.7,
+          widget.isBlack ? 4 : 1,
+        ),
+        decoration: BoxDecoration(
+          color: !widget.enabled
+              ? disabled.withValues(alpha: 0.52)
+              : _active
+                  ? active
+                  : widget.inScale
+                      ? scaleTint
+                      : base,
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(widget.isBlack ? 5 : 7),
+            bottomRight: Radius.circular(widget.isBlack ? 5 : 7),
+          ),
+          border: Border.all(
+            color: widget.isBlack
+                ? Colors.black
+                : const Color(0xFF888888),
+            width: widget.isBlack ? 1.5 : 0.7,
+          ),
+          boxShadow: widget.isBlack
+              ? const [
+                  BoxShadow(
+                    blurRadius: 4,
+                    offset: Offset(0, 3),
+                    color: Colors.black54,
+                  ),
+                ]
+              : null,
+        ),
+        alignment: Alignment.bottomCenter,
+        padding: EdgeInsets.only(bottom: widget.isBlack ? 7 : 10),
+        child: Text(
+          MidiUtils.getNoteName(widget.note),
+          style: TextStyle(
+            fontSize: 9,
+            color: widget.isBlack ? Colors.white70 : Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ChromaticKeyboard extends StatelessWidget {
