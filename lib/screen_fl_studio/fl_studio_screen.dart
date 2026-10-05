@@ -45,6 +45,13 @@ enum _TouchInstrument {
   final IconData icon;
 }
 
+_TouchInstrument? _instrumentFromId(String id) {
+  for (final instrument in _TouchInstrument.values) {
+    if (instrument.name == id) return instrument;
+  }
+  return null;
+}
+
 
 class FlStudioScreen extends ConsumerStatefulWidget {
   const FlStudioScreen({super.key});
@@ -911,9 +918,7 @@ class _ProjectTrackList extends StatelessWidget {
       itemBuilder: (context, index) {
         final track = tracks[index];
         final selected = session.selectedTrack?.id == track.id;
-        final instrument = _TouchInstrument.values.where(
-          (item) => item.name == track.instrumentId,
-        ).firstOrNull;
+        final instrument = _instrumentFromId(track.instrumentId);
         return SizedBox(
           width: MediaQuery.sizeOf(context).width < 760 ? 210 : null,
           child: Material(
@@ -1342,14 +1347,15 @@ class _PianoRollEditor extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (details) {
-            final step =
-                (details.localPosition.dx / cellWidth).floor().clamp(
-                      0,
-                      visibleSteps - 1,
-                    );
-            final row =
-                (details.localPosition.dy / cellHeight).floor().clamp(0, 23);
-            final note = (topNote - row).clamp(bottomNote, topNote);
+            final step = (details.localPosition.dx / cellWidth)
+                .floor()
+                .clamp(0, visibleSteps - 1)
+                .toInt();
+            final row = (details.localPosition.dy / cellHeight)
+                .floor()
+                .clamp(0, 23)
+                .toInt();
+            final note = (topNote - row).clamp(bottomNote, topNote).toInt();
             final start = step * stepMicros;
 
             final index = clip.notes.indexWhere((item) {
@@ -1604,7 +1610,7 @@ class _MixerTrackStrip extends StatelessWidget {
                     child: Slider(
                       min: 0,
                       max: 1.5,
-                      value: track.volume.clamp(0.0, 1.5),
+                      value: track.volume.clamp(0.0, 1.5).toDouble(),
                       onChanged: onVolume,
                     ),
                   ),
@@ -1625,7 +1631,7 @@ class _MixerTrackStrip extends StatelessWidget {
                       min: -1,
                       max: 1,
                       divisions: 20,
-                      value: track.pan.clamp(-1.0, 1.0),
+                      value: track.pan.clamp(-1.0, 1.0).toDouble(),
                       onChanged: onPan,
                     ),
                   ),
