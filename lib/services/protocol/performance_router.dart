@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:beat_pads/services/audio/local_synth.dart';
 import 'package:beat_pads/services/protocol/axyp_event.dart';
+import 'package:beat_pads/services/protocol/midi_note_gate.dart';
 import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 
 typedef IntReader = int Function();
@@ -29,6 +30,8 @@ final class PerformanceRouter {
   final BoolReader _localAudioEnabled;
   final BoolReader _percussive;
   final VoidEventTap? eventTap;
+
+  final MidiNoteGate _midiNotes = MidiNoteGate();
 
   int _sequence = 0;
 
@@ -136,11 +139,13 @@ final class PerformanceRouter {
 
     switch (event) {
       case AxypNoteOn e:
-        NoteOnMessage(
-          channel: e.channel,
-          note: e.note,
-          velocity: e.velocity,
-        ).send();
+        if (_midiNotes.acquire(e.channel, e.note)) {
+          NoteOnMessage(
+            channel: e.channel,
+            note: e.note,
+            velocity: e.velocity,
+          ).send();
+        }
         if (_localAudioEnabled()) {
           unawaited(
             LocalSynth.instance.noteOn(
@@ -153,7 +158,9 @@ final class PerformanceRouter {
         }
         break;
       case AxypNoteOff e:
-        NoteOffMessage(channel: e.channel, note: e.note).send();
+        if (_midiNotes.release(e.channel, e.note)) {
+          NoteOffMessage(channel: e.channel, note: e.note).send();
+        }
         LocalSynth.instance.noteOff(e.note, voiceId: e.pointerId);
         break;
       case AxypControl e:
@@ -183,6 +190,7 @@ final class PerformanceRouter {
         ).send();
         break;
       case AxypPanic e:
+        _midiNotes.clear();
         CCMessage(channel: e.channel, controller: 123).send();
         LocalSynth.instance.panic();
         break;
