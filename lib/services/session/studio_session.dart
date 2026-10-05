@@ -378,6 +378,137 @@ final class StudioSession extends ChangeNotifier {
     _editSelectedClip((clip) => clip.copyWith(loop: loop));
   }
 
+  void trimSelectedClipStart(int amountMicros) {
+    final source = selectedClip;
+    if (source == null || amountMicros <= 0 || source.lengthMicros <= 2000) {
+      return;
+    }
+
+    final trim = math.min(amountMicros, source.lengthMicros - 1000);
+    final newLength = source.lengthMicros - trim;
+    final notes = <RecordedNote>[];
+
+    for (final note in source.notes) {
+      if (note.endMicros <= trim) continue;
+      final newStart = math.max(0, note.startMicros - trim);
+      if (newStart >= newLength) continue;
+      final shiftedEnd = note.endMicros - trim;
+      final newEnd = math.min(newLength, shiftedEnd);
+      if (newEnd <= newStart) continue;
+      notes.add(
+        note.copyWith(
+          startMicros: newStart,
+          durationMicros: math.max(1000, newEnd - newStart),
+        ),
+      );
+    }
+
+    _snapshot();
+    _replaceSelectedClip(
+      source.copyWith(
+        startMicros: source.startMicros + trim,
+        lengthMicros: newLength,
+        notes: List<RecordedNote>.unmodifiable(notes),
+      ),
+    );
+    _commit();
+  }
+
+  void trimSelectedClipEnd(int amountMicros) {
+    final source = selectedClip;
+    if (source == null || amountMicros <= 0 || source.lengthMicros <= 2000) {
+      return;
+    }
+
+    final trim = math.min(amountMicros, source.lengthMicros - 1000);
+    final newLength = source.lengthMicros - trim;
+    final notes = <RecordedNote>[];
+
+    for (final note in source.notes) {
+      if (note.startMicros >= newLength) continue;
+      final newEnd = math.min(newLength, note.endMicros);
+      if (newEnd <= note.startMicros) continue;
+      notes.add(
+        note.copyWith(
+          durationMicros: math.max(1000, newEnd - note.startMicros),
+        ),
+      );
+    }
+
+    _snapshot();
+    _replaceSelectedClip(
+      source.copyWith(
+        lengthMicros: newLength,
+        notes: List<RecordedNote>.unmodifiable(notes),
+      ),
+    );
+    _commit();
+  }
+
+  void splitSelectedClipAt(int relativeMicros) {
+    final track = selectedTrack;
+    final source = selectedClip;
+    if (track == null || source == null || source.lengthMicros < 3000) return;
+
+    final split = relativeMicros
+        .clamp(1000, source.lengthMicros - 1000)
+        .toInt();
+    final leftNotes = <RecordedNote>[];
+    final rightNotes = <RecordedNote>[];
+
+    for (final note in source.notes) {
+      if (note.startMicros < split) {
+        final leftEnd = math.min(split, note.endMicros);
+        if (leftEnd > note.startMicros) {
+          leftNotes.add(
+            note.copyWith(
+              durationMicros: math.max(1000, leftEnd - note.startMicros),
+            ),
+          );
+        }
+      }
+
+      if (note.endMicros > split) {
+        final newStart = math.max(0, note.startMicros - split);
+        final newEnd = note.endMicros - split;
+        if (newEnd > newStart) {
+          rightNotes.add(
+            note.copyWith(
+              startMicros: newStart,
+              durationMicros: math.max(1000, newEnd - newStart),
+            ),
+          );
+        }
+      }
+    }
+
+    _snapshot();
+    final left = source.copyWith(
+      name: '${source.name} A',
+      notes: List<RecordedNote>.unmodifiable(leftNotes),
+      lengthMicros: split,
+      loop: false,
+    );
+    final right = source.copyWith(
+      id: _newId('clip'),
+      name: '${source.name} B',
+      notes: List<RecordedNote>.unmodifiable(rightNotes),
+      lengthMicros: source.lengthMicros - split,
+      startMicros: source.startMicros + split,
+      loop: false,
+    );
+
+    final clips = [...track.clips];
+    final index = clips.indexWhere((clip) => clip.id == source.id);
+    if (index < 0) return;
+    clips
+      ..removeAt(index)
+      ..insertAll(index, <StudioClip>[left, right]);
+    _replaceTrack(track.copyWith(clips: clips));
+    _selectedClipId = right.id;
+    _commit();
+  }
+
   void moveSelectedClip(int deltaMicros) {
     _editSelectedClip(
       (clip) => clip.copyWith(
