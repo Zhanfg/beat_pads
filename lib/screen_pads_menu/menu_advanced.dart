@@ -25,7 +25,7 @@ class MenuInput extends ConsumerWidget {
               color: Palette.darkGrey,
               child: ListTile(
                 title: const Text(
-                  'Advanced Mode',
+                  '高级演奏模式',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 // subtitle: const Text(
@@ -47,48 +47,48 @@ class MenuInput extends ConsumerWidget {
                 children: <Widget>[
                   if (ref.watch(playModeProv) == PlayMode.mpeTargetPb)
                     const StringInfoBox(
-                      header: 'Push Style MPE',
+                      header: 'Push 风格 MPE',
                       body: [
-                        'Slide your finger to other pads and bend the pitch towards them.',
-                        'Send a modulation on the pad Y-Axis (Default: Slide / CC 74).',
-                        'Note: Set your instrument to the max range of MPE Pitchbend (48 semitones), to produce the expected pitches.',
-                        'This mode is still new and feedback on the GitHub page is very welcome!',
+                        '手指滑向其他鼓垫时，音高会向目标音符连续弯音。',
+                        'Y 轴可发送调制数据，默认是 Slide / CC74。',
+                        '提示：建议把音源的 MPE 弯音范围设置为 48 个半音。',
+                        '该模式仍在持续完善。',
                       ],
                     ),
                   if (ref.watch(playModeProv) == PlayMode.channelMod)
                     const StringInfoBox(
-                      header: 'Channel Aftertouch',
+                      header: '通道触后',
                       body: [
-                        'Slide your finger to send monophonic Aftertouch data for all notes on the current channel.',
-                        'Note: Only one modulation can be sent at a time, which means further touch slides are ignored while a modulation is already in process.',
+                        '滑动手指，为当前通道上的音符发送单声道 Aftertouch。',
+                        '同一时间只处理一组通道触后调制。',
                       ],
                     ),
                   if (ref.watch(playModeProv) == PlayMode.polyAT)
                     const StringInfoBox(
-                      header: 'Polyphonic Aftertouch',
+                      header: '复音触后',
                       body: [
-                        'Slide your finger to send polyphonic Aftertouch data for the current note.',
-                        'Every Note can handle its own Aftertouch modulation in this mode.',
+                        '滑动手指，为当前音符发送 Poly Aftertouch。',
+                        '每个音符都可以独立处理触后调制。',
                       ],
                     ),
                   if (ref.watch(playModeProv) == PlayMode.mpe)
                     const StringInfoBox(
                       header: 'MPE',
                       body: [
-                        'Slide your finger to send custom modulation data for any activated note on the grid. An overlay will appear, showing the current modulation state.',
-                        'You can choose one-dimensional modulation to control one paramter by the distance to where the movement started. Or two-dimensional modulation along an X and Y Axis, centered on the initial touch.',
+                        '滑动手指可为当前激活音符发送自定义 MPE 调制，并显示实时调制覆盖层。',
+                        '可选择一维半径调制，或以初始触点为中心的 X/Y 二维调制。',
                       ],
                     ),
                   if (ref.watch(playModeProv) == PlayMode.slide)
                     const StringInfoBox(
-                      header: 'Trigger Notes',
+                      header: '滑动触发音符',
                       body: [
-                        'Any note you slide your finger over gets triggered after the initial touch.',
+                        '按下后滑过的音符都会被触发。',
                       ],
                     ),
                   if (ref.watch(playModeProv) == PlayMode.mpeTargetPb)
                     ListTile(
-                      title: const Text('Y-Axis'),
+                      title: const Text('Y 轴'),
                       trailing: DropdownEnum(
                         values: MPEpushStyleYAxisMods.values,
                         readValue: ref.watch(mpePushYAxisModeProv),
@@ -99,9 +99,9 @@ class MenuInput extends ConsumerWidget {
                     ),
                   if (ref.watch(playModeProv) == PlayMode.mpeTargetPb)
                     ListTile(
-                      title: const Text('Row Pads only'),
+                      title: const Text('仅当前行鼓垫'),
                       subtitle: const Text(
-                        'Ignore modulation on pads below or above the current Row',
+                        '忽略当前行上方或下方鼓垫产生的调制',
                       ),
                       trailing: Switch(
                         value: ref.watch(mpeOnlyOnRowProv),
@@ -112,9 +112,9 @@ class MenuInput extends ConsumerWidget {
                   if (ref.watch(playModeProv) == PlayMode.mpeTargetPb)
                     IntSliderTile(
                       max: 75,
-                      label: 'In-Tune Zone',
+                      label: '稳定音高区域',
                       subtitle:
-                          'Set the size of the pad center with stable pitch, in percent of the pad width',
+                          '设置鼓垫中心保持稳定音高的区域宽度百分比',
                       trailing: ref.watch(pitchDeadzoneProv).toString(),
                       readValue: ref.watch(pitchDeadzoneProv),
                       setValue: (int v) =>
@@ -124,9 +124,9 @@ class MenuInput extends ConsumerWidget {
                     ),
                   if (ref.watch(playModeProv) == PlayMode.mpeTargetPb)
                     ListTile(
-                      title: const Text('Relative Mode'),
+                      title: const Text('相对模式'),
                       subtitle: const Text(
-                        'The initial touch position becomes the Pitch and Slide center for that pad',
+                        '初始触点将作为该鼓垫的弯音与 Slide 中心',
                       ),
                       trailing: Switch(
                         value: ref.watch(mpeRelativeModeProv),
@@ -139,9 +139,9 @@ class MenuInput extends ConsumerWidget {
                     ModSizeSliderTile(
                       min: ref.watch(modulationRadiusProv.notifier).min,
                       max: ref.watch(modulationRadiusProv.notifier).max,
-                      label: 'Input Size',
+                      label: '调制区域大小',
                       subtitle:
-                          'Modulation field width, relative to the pad screen',
+                          '调制区域相对于鼓垫显示区域的宽度',
                       trailing: Text(
                         '${(ref.watch(modulationRadiusProv) * 100).toInt()}%',
                       ),
@@ -160,9 +160,9 @@ class MenuInput extends ConsumerWidget {
                     ModSizeSliderTile(
                       min: ref.watch(modulationDeadZoneProv.notifier).min,
                       max: ref.watch(modulationDeadZoneProv.notifier).max,
-                      label: 'Dead Zone',
+                      label: '中心死区',
                       subtitle:
-                          'Size of the non-reactive center of the modulation field',
+                          '调制区域中心不响应的范围',
                       trailing: Text(
                         '${(ref.watch(modulationDeadZoneProv) * 100).toInt()}%',
                       ),
@@ -185,9 +185,9 @@ class MenuInput extends ConsumerWidget {
                     const DividerTitle('MPE'),
                   if (ref.watch(playModeProv) == PlayMode.mpe)
                     ListTile(
-                      title: const Text('2-D Modulation'),
+                      title: const Text('二维调制'),
                       subtitle: const Text(
-                        'Modulate 2 controls on the X and Y axis, or just 1 by Radius [CC in brackets]',
+                        'X/Y 轴分别控制两个参数；也可只使用半径控制一个参数（括号内为 CC）',
                       ),
                       trailing: Switch(
                         value: ref.watch(modulation2DProv),
@@ -198,7 +198,7 @@ class MenuInput extends ConsumerWidget {
                   if (ref.watch(playModeProv) == PlayMode.mpe &&
                       ref.watch(modulation2DProv))
                     ListTile(
-                      title: const Text('X-Axis'),
+                      title: const Text('X 轴'),
                       trailing: DropdownModulation(
                         readValue: ref.watch(mpe2DXProv),
                         setValue: (MPEmods v) =>
@@ -209,7 +209,7 @@ class MenuInput extends ConsumerWidget {
                   if (ref.watch(playModeProv) == PlayMode.mpe &&
                       ref.watch(modulation2DProv))
                     ListTile(
-                      title: const Text('Y-Axis'),
+                      title: const Text('Y 轴'),
                       trailing: DropdownModulation(
                         readValue: ref.watch(mpe2DYProv),
                         setValue: (MPEmods v) =>
@@ -220,7 +220,7 @@ class MenuInput extends ConsumerWidget {
                   if (ref.watch(playModeProv) == PlayMode.mpe &&
                       ref.watch(modulation2DProv) == false)
                     ListTile(
-                      title: const Text('Radius'),
+                      title: const Text('半径'),
                       trailing: DropdownModulation(
                         dimensions: Dims.one,
                         readValue: ref.watch(mpe1DRadiusProv),
@@ -236,8 +236,8 @@ class MenuInput extends ConsumerWidget {
                       IntSliderTile(
                         min: 1,
                         max: 48,
-                        label: 'Pitch Bend Range',
-                        subtitle: 'Maximum MPE Pitch Bend in semitones',
+                        label: '弯音范围',
+                        subtitle: 'MPE 最大弯音范围（半音）',
                         trailing: '${ref.watch(mpePitchbendRangeProv)} st',
                         readValue: ref.watch(mpePitchbendRangeProv),
                         setValue: (int v) =>
@@ -249,16 +249,16 @@ class MenuInput extends ConsumerWidget {
                             .read(mpePitchbendRangeProv.notifier)
                             .save,
                       ),
-                  const DividerTitle('Release'),
+                  const DividerTitle('松手行为'),
                   NonLinearSliderTile(
-                    label: 'Note Release Delay',
-                    subtitle: 'NoteOff delay after pad release in milliseconds',
+                    label: '音符释放延迟',
+                    subtitle: '松开鼓垫后延迟发送 NoteOff，单位毫秒',
                     readValue: ref.watch(noteReleaseStepProv),
                     setValue: (int v) =>
                         ref.read(noteReleaseStepProv.notifier).set(v),
                     resetFunction: ref.read(noteReleaseStepProv.notifier).reset,
                     displayValue: ref.watch(noteReleaseUsable) == 0
-                        ? 'Off'
+                        ? '关闭'
                         : ref.watch(noteReleaseUsable) < 1000
                         ? '${ref.watch(noteReleaseUsable)} ms'
                         : '${ref.watch(noteReleaseUsable) / 1000} s',
@@ -267,9 +267,9 @@ class MenuInput extends ConsumerWidget {
                   ),
                   if (ref.watch(playModeProv).modulationOverlay)
                     NonLinearSliderTile(
-                      label: 'Modulation Ease Back',
+                      label: '调制平滑回中',
                       subtitle:
-                          'Modulation returning to Zero after pad release in milliseconds',
+                          '松开鼓垫后调制参数平滑回到 0 的时间，单位毫秒',
                       readValue: ref.watch(modReleaseStepProv),
                       setValue: (int v) =>
                           ref.read(modReleaseStepProv.notifier).set(v),
@@ -277,7 +277,7 @@ class MenuInput extends ConsumerWidget {
                           .read(modReleaseStepProv.notifier)
                           .reset,
                       displayValue: ref.watch(modReleaseUsable) == 0
-                          ? 'Off'
+                          ? '关闭'
                           : ref.watch(modReleaseUsable) < 1000
                           ? '${ref.watch(modReleaseUsable)} ms'
                           : '${ref.watch(modReleaseUsable) / 1000} s',
@@ -288,9 +288,9 @@ class MenuInput extends ConsumerWidget {
                     const DividerTitle('CC'),
                   if (ref.watch(playModeProv).singleChannel)
                     ListTile(
-                      title: const Text('Control Change'),
+                      title: const Text('控制变化 CC'),
                       subtitle: const Text(
-                        'Send CC Message along with Note, one Midi channel higher',
+                        '发送音符时同时在高一号 MIDI 通道发送 CC 消息',
                       ),
                       trailing: Switch(
                         value: ref.watch(sendCCProv),
@@ -311,7 +311,7 @@ class MenuInput extends ConsumerWidget {
             color: Palette.darkGrey.withValues(alpha: 0.86),
             child: Center(
               child: Text(
-                'Advanced settings disabled when using the Program Change layout',
+                '使用 Program Change 布局时，高级设置不可用',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Palette.whiteLike,
