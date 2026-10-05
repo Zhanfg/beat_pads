@@ -299,6 +299,593 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   }
 }
 
+
+class _GarageControlBar extends StatelessWidget {
+  const _GarageControlBar({
+    required this.instrument,
+    required this.connectedCount,
+    required this.onOpenInstrumentBrowser,
+    required this.onOpenMidiDevices,
+    required this.onGoToBeginning,
+    required this.onPlay,
+    required this.onStop,
+    required this.onRecord,
+    required this.onMetronome,
+    required this.onControls,
+    required this.onPanic,
+  });
+
+  final _TouchInstrument instrument;
+  final int connectedCount;
+  final VoidCallback onOpenInstrumentBrowser;
+  final VoidCallback onOpenMidiDevices;
+  final VoidCallback onGoToBeginning;
+  final VoidCallback onPlay;
+  final VoidCallback onStop;
+  final VoidCallback onRecord;
+  final VoidCallback onMetronome;
+  final VoidCallback onControls;
+  final VoidCallback onPanic;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: const Color(0xFF202020),
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: [
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Touch Instruments',
+              onPressed: onOpenInstrumentBrowser,
+              icon: const Icon(Icons.apps_rounded),
+            ),
+            IconButton(
+              tooltip: 'MIDI devices',
+              onPressed: onOpenMidiDevices,
+              icon: Icon(
+                connectedCount > 0 ? Icons.usb_rounded : Icons.usb_off_rounded,
+                color: connectedCount > 0 ? scheme.primary : null,
+              ),
+            ),
+            const VerticalDivider(width: 1, indent: 12, endIndent: 12),
+            const SizedBox(width: 8),
+            Icon(instrument.icon, size: 19),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                instrument.label,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Go to beginning · CC115',
+              onPressed: onGoToBeginning,
+              icon: const Icon(Icons.skip_previous_rounded),
+            ),
+            IconButton(
+              tooltip: 'Stop · CC112',
+              onPressed: onStop,
+              icon: const Icon(Icons.stop_rounded),
+            ),
+            IconButton(
+              tooltip: 'Play · CC111',
+              onPressed: onPlay,
+              icon: const Icon(Icons.play_arrow_rounded),
+            ),
+            IconButton(
+              tooltip: 'Record · CC110',
+              onPressed: onRecord,
+              icon: Icon(Icons.fiber_manual_record_rounded, color: scheme.error),
+            ),
+            IconButton(
+              tooltip: 'Metronome · CC114',
+              onPressed: onMetronome,
+              icon: const Icon(Icons.timer_outlined),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Track Controls',
+              onPressed: onControls,
+              icon: const Icon(Icons.tune_rounded),
+            ),
+            IconButton(
+              tooltip: 'Panic / all notes off',
+              onPressed: onPanic,
+              icon: const Icon(Icons.warning_amber_rounded),
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InstrumentBrowserTile extends StatelessWidget {
+  const _InstrumentBrowserTile({
+    required this.instrument,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _TouchInstrument instrument;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primaryContainer
+          : scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          child: Row(
+            children: [
+              Icon(instrument.icon, size: 26),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  instrument.label,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (selected) const Icon(Icons.check_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MeasureRuler extends StatelessWidget {
+  const _MeasureRuler();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 28,
+      decoration: const BoxDecoration(
+        color: Color(0xFF191919),
+        border: Border(
+          bottom: BorderSide(color: Colors.white12),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          for (int bar = 1; bar <= 8; bar++) ...[
+            Expanded(
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Container(
+                      width: 1,
+                      height: bar.isOdd ? 11 : 7,
+                      color: scheme.onSurface.withValues(alpha: 0.28),
+                    ),
+                  ),
+                  Positioned(
+                    left: 5,
+                    top: 4,
+                    child: Text(
+                      '$bar',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: scheme.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _InstrumentStatusBar extends StatelessWidget {
+  const _InstrumentStatusBar({
+    required this.channel,
+    required this.velocity,
+    required this.scale,
+    required this.scaleRoot,
+    required this.scaleLock,
+  });
+
+  final int channel;
+  final int velocity;
+  final FlScale scale;
+  final int scaleRoot;
+  final bool scaleLock;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final root = MidiUtils.getNoteName(
+      scaleRoot + 60,
+      showOctaveIndex: false,
+    );
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1B1B1B),
+        border: Border(top: BorderSide(color: Colors.white12)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'CH ${channel + 1}',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'VEL $velocity',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const Spacer(),
+          Icon(
+            scaleLock ? Icons.lock_rounded : Icons.lock_open_rounded,
+            size: 13,
+            color: scaleLock ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '$root · ${scale.label}',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyboardInstrumentView extends StatelessWidget {
+  const _KeyboardInstrumentView({
+    required this.baseNote,
+    required this.velocity,
+    required this.scale,
+    required this.scaleRoot,
+    required this.scaleLock,
+    required this.touchDynamics,
+    required this.onNoteOn,
+    required this.onNoteOff,
+    required this.onOctaveDown,
+    required this.onOctaveUp,
+  });
+
+  final int baseNote;
+  final int velocity;
+  final FlScale scale;
+  final int scaleRoot;
+  final bool scaleLock;
+  final bool touchDynamics;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+  final VoidCallback onOctaveDown;
+  final VoidCallback onOctaveUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Octave down',
+                  onPressed: onOctaveDown,
+                  icon: const Icon(Icons.remove_rounded),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(MidiUtils.getNoteName(baseNote)),
+                ),
+                IconButton(
+                  tooltip: 'Octave up',
+                  onPressed: onOctaveUp,
+                  icon: const Icon(Icons.add_rounded),
+                ),
+                const Spacer(),
+                if (scaleLock)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    avatar: const Icon(Icons.lock_rounded, size: 14),
+                    label: Text(scale.label),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: _ChromaticKeyboard(
+                baseNote: baseNote,
+                noteCount: 37,
+                velocity: velocity,
+                scale: scale,
+                scaleRoot: scaleRoot,
+                scaleLock: scaleLock,
+                touchDynamics: touchDynamics,
+                onNoteOn: onNoteOn,
+                onNoteOff: onNoteOff,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrumsInstrumentView extends StatelessWidget {
+  const _DrumsInstrumentView({
+    required this.baseNote,
+    required this.velocity,
+    required this.touchDynamics,
+    required this.onNoteOn,
+    required this.onNoteOff,
+    required this.onBankDown,
+    required this.onBankUp,
+  });
+
+  final int baseNote;
+  final int velocity;
+  final bool touchDynamics;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+  final VoidCallback onBankDown;
+  final VoidCallback onBankUp;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Drum Kit',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Previous pad bank',
+                  onPressed: onBankDown,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Text('$baseNote–${baseNote + 15}'),
+                IconButton(
+                  tooltip: 'Next pad bank',
+                  onPressed: onBankUp,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: _FpcGrid(
+                baseNote: baseNote,
+                velocity: velocity,
+                touchDynamics: touchDynamics,
+                onNoteOn: onNoteOn,
+                onNoteOff: onNoteOff,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SmartChordsView extends StatelessWidget {
+  const _SmartChordsView({
+    required this.scale,
+    required this.scaleRoot,
+    required this.velocity,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final FlScale scale;
+  final int scaleRoot;
+  final int velocity;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  List<int> _intervals() {
+    if (scale == FlScale.chromatic) {
+      return const <int>[0, 2, 4, 5, 7, 9, 11];
+    }
+    return scale.intervals;
+  }
+
+  List<int> _chordForDegree(int degree) {
+    final intervals = _intervals();
+    final notes = <int>[];
+    for (final offset in const <int>[0, 2, 4]) {
+      final rawIndex = degree + offset;
+      final wrapped = rawIndex % intervals.length;
+      final octave = rawIndex ~/ intervals.length;
+      notes.add(48 + scaleRoot + intervals[wrapped] + octave * 12);
+    }
+    return notes;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final intervals = _intervals();
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Smart Chords',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              scale == FlScale.chromatic
+                  ? 'Major-key chord set · choose a scale in Controls for modal voicings'
+                  : 'Chord strips follow ${scale.label}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontal =
+                      constraints.maxWidth > constraints.maxHeight * 1.25;
+                  final count = horizontal ? intervals.length : 2;
+                  return GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: intervals.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: count,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: horizontal ? 0.72 : 2.6,
+                    ),
+                    itemBuilder: (context, degree) {
+                      final chord = _chordForDegree(degree);
+                      final root = MidiUtils.getNoteName(
+                        chord.first,
+                        showOctaveIndex: false,
+                      );
+                      return _ChordPad(
+                        label: root,
+                        degree: degree + 1,
+                        notes: chord,
+                        velocity: velocity,
+                        onNoteOn: onNoteOn,
+                        onNoteOff: onNoteOff,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChordPad extends StatefulWidget {
+  const _ChordPad({
+    required this.label,
+    required this.degree,
+    required this.notes,
+    required this.velocity,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final String label;
+  final int degree;
+  final List<int> notes;
+  final int velocity;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_ChordPad> createState() => _ChordPadState();
+}
+
+class _ChordPadState extends State<_ChordPad> {
+  bool _active = false;
+
+  void _down(PointerDownEvent event) {
+    if (_active) return;
+    HapticFeedback.selectionClick();
+    for (final note in widget.notes) {
+      widget.onNoteOn(note, velocity: widget.velocity);
+    }
+    setState(() => _active = true);
+  }
+
+  void _up() {
+    if (!_active) return;
+    for (final note in widget.notes) {
+      widget.onNoteOff(note);
+    }
+    if (mounted) setState(() => _active = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _down,
+      onPointerUp: (_) => _up(),
+      onPointerCancel: (_) => _up(),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 55),
+        decoration: BoxDecoration(
+          color:
+              _active ? scheme.primaryContainer : scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _active ? scheme.primary : scheme.outlineVariant,
+          ),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.label,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Degree ${widget.degree}',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
 class _PerformanceArea extends StatelessWidget {
   const _PerformanceArea({
     required this.keyboardBaseNote,
@@ -1227,24 +1814,31 @@ class _FpcGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 16,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 6,
-        crossAxisSpacing: 6,
-      ),
-      itemBuilder: (context, index) {
-        final note = (baseNote + index).clamp(0, 127).toInt();
-        return _DrumPad(
-          label: _labels[index],
-          note: note,
-          velocity: velocity,
-          touchDynamics: touchDynamics,
-          onNoteOn: onNoteOn,
-          onNoteOff: onNoteOff,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final landscape =
+            constraints.maxWidth > constraints.maxHeight * 1.35;
+        return GridView.builder(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 16,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: landscape ? 8 : 4,
+            mainAxisSpacing: 7,
+            crossAxisSpacing: 7,
+            childAspectRatio: landscape ? 1.18 : 1,
+          ),
+          itemBuilder: (context, index) {
+            final note = (baseNote + index).clamp(0, 127).toInt();
+            return _DrumPad(
+              label: _labels[index],
+              note: note,
+              velocity: velocity,
+              touchDynamics: touchDynamics,
+              onNoteOn: onNoteOn,
+              onNoteOff: onNoteOff,
+            );
+          },
         );
       },
     );
