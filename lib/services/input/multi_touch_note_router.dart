@@ -21,6 +21,7 @@ final class MultiTouchNoteRouter {
 
   final Map<int, int> _pointerToNote = <int, int>{};
   final Map<int, int> _noteOwners = <int, int>{};
+  final Map<int, int> _noteVoicePointer = <int, int>{};
 
   Set<int> get activeNotes => _noteOwners.keys.toSet();
 
@@ -33,6 +34,7 @@ final class MultiTouchNoteRouter {
     final owners = (_noteOwners[note] ?? 0) + 1;
     _noteOwners[note] = owners;
     if (owners == 1) {
+      _noteVoicePointer[note] = pointerId;
       _onNoteOn(note, velocity: velocity, pointerId: pointerId);
     }
   }
@@ -62,7 +64,8 @@ final class MultiTouchNoteRouter {
     final owners = (_noteOwners[note] ?? 1) - 1;
     if (owners <= 0) {
       _noteOwners.remove(note);
-      _onNoteOff(note, pointerId: pointerId);
+      final voicePointer = _noteVoicePointer.remove(note) ?? pointerId;
+      _onNoteOff(note, pointerId: voicePointer);
     } else {
       _noteOwners[note] = owners;
     }
