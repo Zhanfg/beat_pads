@@ -1,15 +1,109 @@
-import 'package:beat_pads/services/services.dart';
+import 'package:beat_pads/services/input/multi_touch_note_router.dart';
+import 'package:beat_pads/services/protocol/axyp_event.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Tests', () {
-    test('Print ASCII codes:', () {
-      for (int i = 0x00; i <= 0xFF; i++) {
-        Utils.logd(
-          'Hex: ${i.toRadixString(16).toUpperCase()} / Dec: $i --->  ${String.fromCharCode(i)}',
-        );
-      }
-      expect(true, true);
+  group('MultiTouchNoteRouter', () {
+    test('keeps independent fingers active for chords and glissando', () {
+      final on = <String>[];
+      final off = <String>[];
+      final router = MultiTouchNoteRouter(
+        onNoteOn: (
+          int note, {
+          int? velocity,
+          required int pointerId,
+        }) {
+          on.add('$pointerId:$note:${velocity ?? -1}');
+        },
+        onNoteOff: (int note, {required int pointerId}) {
+          off.add('$pointerId:$note');
+        },
+      );
+
+      router.down(11, 60, velocity: 90);
+      router.down(22, 64, velocity: 100);
+
+      expect(router.activeNotes, <int>{60, 64});
+      expect(on, <String>['11:60:90', '22:64:100']);
+
+      router.move(11, 62, velocity: 95);
+
+      expect(router.activeNotes, <int>{62, 64});
+      expect(off, contains('11:60'));
+      expect(on, contains('11:62:95'));
+
+      router.up(22);
+      router.up(11);
+      expect(router.activeNotes, isEmpty);
+    });
+
+    test('does not release a shared note until its final owner leaves', () {
+      int noteOnCount = 0;
+      int noteOffCount = 0;
+      final router = MultiTouchNoteRouter(
+        onNoteOn: (
+          int note, {
+          int? velocity,
+          required int pointerId,
+        }) {
+          noteOnCount++;
+        },
+        onNoteOff: (int note, {required int pointerId}) {
+          noteOffCount++;
+        },
+      );
+
+      router.down(1, 60);
+      router.down(2, 60);
+      expect(noteOnCount, 1);
+
+      router.up(1);
+      expect(noteOffCount, 0);
+
+      router.up(2);
+      expect(noteOffCount, 1);
+    });
+  });
+
+  group('AXYP/1', () {
+    test('round-trips pointer-aware NoteOn frames', () {
+      const event = AxypNoteOn(
+        sequence: 42,
+        timestampMicros: 123456789,
+        channel: 3,
+        pointerId: 77,
+        note: 64,
+        velocity: 111,
+        percussive: false,
+      );
+
+      final frame = AxypCodec.encode(event);
+      expect(frame.take(4), <int>[0x41, 0x58, 0x59, 0x50]);
+      expect(frame[4], AxypCodec.version);
+      expect(frame.length, AxypCodec.headerLength + 3);
+
+      final decoded = AxypCodec.decode(frame);
+      expect(decoded, isA<AxypNoteOn>());
+      final note = decoded as AxypNoteOn;
+      expect(note.sequence, 42);
+      expect(note.timestampMicros, 123456789);
+      expect(note.channel, 3);
+      expect(note.pointerId, 77);
+      expect(note.note, 64);
+      expect(note.velocity, 111);
+    });
+
+    test('rejects malformed frame lengths', () {
+      const event = AxypPanic(
+        sequence: 1,
+        timestampMicros: 2,
+        channel: 0,
+      );
+      final frame = AxypCodec.encode(event);
+      expect(
+        () => AxypCodec.decode(frame.sublist(0, frame.length - 1)),
+        throwsFormatException,
+      );
     });
   });
 }
