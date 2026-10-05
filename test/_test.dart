@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:beat_pads/services/input/multi_touch_note_router.dart';
+import 'package:beat_pads/services/input/touch_geometry.dart';
 import 'package:beat_pads/services/protocol/axyp_event.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,6 +65,39 @@ void main() {
 
       router.up(2);
       expect(noteOffCount, 1);
+    });
+  });
+
+
+  group('TouchViewportPolicy', () {
+    test('does not cram 25 notes into a portrait phone', () {
+      expect(
+        TouchViewportPolicy.pianoNoteCount(const Size(690, 1200)),
+        17,
+      );
+      expect(
+        TouchViewportPolicy.pianoNoteCount(const Size(390, 820)),
+        13,
+      );
+      expect(
+        TouchViewportPolicy.pianoNoteCount(const Size(1200, 600)),
+        31,
+      );
+    });
+
+    test('maps a fretboard point without per-cell gesture listeners', () {
+      const geometry = FretboardGeometry(
+        size: Size(700, 480),
+        stringCount: 6,
+        firstFret: 0,
+        visibleFretCount: 8,
+      );
+
+      expect(geometry.stringAt(const Offset(100, 20)), 0);
+      expect(geometry.stringAt(const Offset(100, 470)), 5);
+      expect(geometry.fretAt(const Offset(20, 100)), isNull);
+      expect(geometry.fretAt(const Offset(60, 100)), 0);
+      expect(geometry.fretAt(const Offset(699, 100)), 7);
     });
   });
 
