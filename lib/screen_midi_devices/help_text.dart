@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:beat_pads/shared_components/_shared.dart';
+import 'package:beat_pads/shared_components/strings_info_box.dart';
 import 'package:flutter/material.dart';
 
 List<Widget> helpText = [
