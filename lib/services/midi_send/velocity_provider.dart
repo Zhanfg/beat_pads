@@ -2,9 +2,9 @@ import 'dart:math';
 import 'package:beat_pads/services/services.dart';
 
 enum VelocityMode {
-  random('Random'),
-  fixed('Fixed'),
-  yAxis('Y-Axis');
+  random('随机'),
+  fixed('固定'),
+  yAxis('Y 轴');
 
   const VelocityMode(this.title);
   final String title;
