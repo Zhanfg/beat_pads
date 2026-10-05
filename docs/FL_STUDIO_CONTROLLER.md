@@ -1,4 +1,4 @@
-# FL Studio Controller mode
+# FL Studio Companion · Touch Instruments
 
 This branch adds a dedicated low-latency performance surface on top of Midi Poly Grid's existing MIDI stack.
 
@@ -33,6 +33,7 @@ This branch adds a dedicated low-latency performance surface on top of Midi Poly
 | Stop | 112 |
 | Loop | 113 |
 | Metronome | 114 |
+| Go to Beginning | 115 |
 
 The controller sends value 127 on press and 0 shortly after release/trigger.
 
@@ -41,6 +42,17 @@ The controller sends value 127 on press and 0 shortly after release/trigger.
 The FL Studio workspace intentionally reuses the existing `flutter_midi_command` send path rather than adding a parallel transport layer. That keeps note, pitch, CC and sustain traffic on the same tested path as the existing pad/MPE modes and avoids additional buffering.
 
 The existing Midi Poly Grid workflow remains unchanged. The FL Studio screen is an additive workspace reachable from the piano icon in the main menu.
+
+## 1.3.0 Touch Instrument architecture
+
+The primary interaction model now follows a Touch Instrument workflow: choose an instrument from the browser, perform in a full-screen play area, use the top control bar for transport, and open Track Controls only when deeper parameters are needed.
+
+Available Touch Instruments:
+- Keyboard: real overlaid black/white piano geometry, octave shifting, Sustain, Scale Lock and touch dynamics.
+- Drums: adaptive 4×4 / 8×2 pad layout depending on orientation.
+- Smart Chords: scale-aware chord strips generated from the selected root and scale.
+
+The top control bar exposes instrument browsing, MIDI-device access, go-to-beginning, stop, play, record, metronome on wide layouts, Track Controls and Panic. CC115 is reserved for Go to Beginning.
 
 ## 1.2.0 interaction model
 
@@ -52,7 +64,7 @@ The XY pad defaults to CC74/CC71 and the four macro controls default to CC20–C
 
 ## Next implementation targets
 
-- true piano geometry with glissando pointer hand-off
+- glissando pointer hand-off across piano keys
 - optional chord/voicing layer
 - Mackie/transport protocol experiment behind an opt-in setting
 - MIDI receive feedback for motor-style macro state
