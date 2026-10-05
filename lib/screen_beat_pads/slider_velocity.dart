@@ -35,7 +35,7 @@ class _SliderVelocityState extends ConsumerState<SliderVelocity> {
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Text(
-                  'Vel',
+                  '力度',
                   style: TextStyle(
                     fontSize: constraints.maxHeight * fontSizeFactor,
                     color: color,
