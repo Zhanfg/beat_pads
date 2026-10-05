@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:beat_pads/services/input/multi_touch_note_router.dart';
 import 'package:beat_pads/services/input/touch_geometry.dart';
 import 'package:beat_pads/services/protocol/axyp_event.dart';
+import 'package:beat_pads/services/protocol/midi_note_gate.dart';
 import 'package:beat_pads/services/session/studio_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -274,6 +275,19 @@ void main() {
     });
   });
 
+  group('MidiNoteGate', () {
+    test('holds a MIDI note until the final AXYP owner releases it', () {
+      final gate = MidiNoteGate();
+      expect(gate.acquire(0, 60), isTrue);
+      expect(gate.acquire(0, 60), isFalse);
+      expect(gate.ownersOf(0, 60), 2);
+
+      expect(gate.release(0, 60), isFalse);
+      expect(gate.ownersOf(0, 60), 1);
+      expect(gate.release(0, 60), isTrue);
+      expect(gate.ownersOf(0, 60), 0);
+    });
+  });
   group('AXYP/1', () {
     test('round-trips pointer-aware NoteOn frames', () {
       const event = AxypNoteOn(
