@@ -53,11 +53,12 @@ Portrait and landscape are not scaled copies.
 ### Session / editing
 - [x] AXYP note capture
 - [x] local clip recording and playback
+- [x] standalone local metronome
 - [x] multi-track project graph
 - [x] Piano Roll editing
 - [x] quantize / transpose / velocity editing
 - [x] clip move / duplicate / delete / real loop playback
-- [ ] clip trim / split
+- [x] clip trim / position-aware split
 - [x] undo/redo history
 - [ ] automation lanes
 - [x] multi-project save/load and autosave
