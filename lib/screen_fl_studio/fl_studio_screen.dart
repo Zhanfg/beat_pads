@@ -5,7 +5,6 @@ import 'package:beat_pads/screen_midi_devices/_drawer_devices.dart';
 import 'package:beat_pads/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum _TouchInstrument {
@@ -301,8 +300,8 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             frets: 12,
             velocity: velocity,
             touchDynamics: touchDynamics,
-            onNoteOn: _noteOn,
-            onNoteOff: _noteOff,
+            onNoteOn: _pointerNoteOn,
+            onNoteOff: _pointerNoteOff,
           );
         case _TouchInstrument.bass:
           return _FretboardView(
@@ -312,16 +311,16 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             frets: 12,
             velocity: velocity,
             touchDynamics: touchDynamics,
-            onNoteOn: _noteOn,
-            onNoteOff: _noteOff,
+            onNoteOn: _pointerNoteOn,
+            onNoteOff: _pointerNoteOff,
           );
         case _TouchInstrument.drums:
           return _DrumsInstrumentView(
             baseNote: _fpcBaseNote,
             velocity: velocity,
             touchDynamics: touchDynamics,
-            onNoteOn: _noteOn,
-            onNoteOff: _noteOff,
+            onNoteOn: _pointerNoteOn,
+            onNoteOff: _pointerNoteOff,
             onBankDown: () {
               setState(() {
                 _fpcBaseNote = (_fpcBaseNote - 16).clamp(0, 111).toInt();
@@ -338,8 +337,8 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             scale: scale,
             scaleRoot: scaleRoot,
             velocity: velocity,
-            onNoteOn: _noteOn,
-            onNoteOff: _noteOff,
+            onNoteOn: _pointerNoteOn,
+            onNoteOff: _pointerNoteOff,
           );
         case _TouchInstrument.arpeggiator:
           return _ArpeggiatorView(
@@ -883,8 +882,8 @@ class _FretboardView extends StatelessWidget {
   final int frets;
   final int velocity;
   final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
   @override
   Widget build(BuildContext context) {
@@ -1009,8 +1008,8 @@ class _FretCell extends StatefulWidget {
   final int fret;
   final int velocity;
   final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
   @override
   State<_FretCell> createState() => _FretCellState();
@@ -1028,6 +1027,7 @@ class _FretCellState extends State<_FretCell> {
           widget.velocity,
           widget.touchDynamics,
         ),
+        pointerId: event.pointer,
       );
     }
     _pointers.add(event.pointer);
@@ -1036,7 +1036,7 @@ class _FretCellState extends State<_FretCell> {
 
   void _up(int pointer) {
     _pointers.remove(pointer);
-    if (_pointers.isEmpty) widget.onNoteOff(widget.note);
+    if (_pointers.isEmpty) widget.onNoteOff(widget.note, pointerId: pointer);
     if (mounted) setState(() {});
   }
 
@@ -1116,8 +1116,8 @@ class _DrumsInstrumentView extends StatelessWidget {
   final int baseNote;
   final int velocity;
   final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
   final VoidCallback onBankDown;
   final VoidCallback onBankUp;
 
@@ -1178,8 +1178,8 @@ class _SmartChordsView extends StatelessWidget {
   final FlScale scale;
   final int scaleRoot;
   final int velocity;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
   List<int> _intervals() {
     if (scale == FlScale.chromatic) {
@@ -1277,31 +1277,38 @@ class _ChordPad extends StatefulWidget {
   final int degree;
   final List<int> notes;
   final int velocity;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
+  final PointerNoteOn onNoteOn;
+  final PointerNoteOff onNoteOff;
 
   @override
   State<_ChordPad> createState() => _ChordPadState();
 }
 
 class _ChordPadState extends State<_ChordPad> {
-  bool _active = false;
+  final Set<int> _pointers = <int>{};
+
+  bool get _active => _pointers.isNotEmpty;
 
   void _down(PointerDownEvent event) {
-    if (_active) return;
+    if (_pointers.contains(event.pointer)) return;
     HapticFeedback.selectionClick();
+    _pointers.add(event.pointer);
     for (final note in widget.notes) {
-      widget.onNoteOn(note, velocity: widget.velocity);
+      widget.onNoteOn(
+        note,
+        velocity: widget.velocity,
+        pointerId: event.pointer,
+      );
     }
-    setState(() => _active = true);
+    setState(() {});
   }
 
-  void _up() {
-    if (!_active) return;
+  void _up(int pointerId) {
+    if (!_pointers.remove(pointerId)) return;
     for (final note in widget.notes) {
-      widget.onNoteOff(note);
+      widget.onNoteOff(note, pointerId: pointerId);
     }
-    if (mounted) setState(() => _active = false);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -1310,8 +1317,8 @@ class _ChordPadState extends State<_ChordPad> {
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: _down,
-      onPointerUp: (_) => _up(),
-      onPointerCancel: (_) => _up(),
+      onPointerUp: (event) => _up(event.pointer),
+      onPointerCancel: (event) => _up(event.pointer),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 55),
         decoration: BoxDecoration(
