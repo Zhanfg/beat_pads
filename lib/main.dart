@@ -1,52 +1,33 @@
 import 'package:beat_pads/screen_fl_studio/fl_studio_screen.dart';
-import 'package:beat_pads/screen_splash/_screen_splash.dart';
 import 'package:beat_pads/services/services.dart';
-import 'package:beat_pads/theme.dart';
-// ignore: unused_import
-// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// ignore: unused_import
-// import 'package:flutter/rendering.dart'; // for debug repaint rainbow, if enabled in main()
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rive/rive.dart';
 
-// SHARED PREFERENCES PROVIDER //////////////////////////////////////////
 final sharedPrefProvider = Provider<Prefs>((ref) {
-  throw UnimplementedError(); // overriden in ProviderScope
+  throw UnimplementedError();
 });
 
-// MAIN FUNCTION ////////////////////////////////////////////////////////
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await RiveNative.init(); // Call init before using Rive in the app
 
   await DeviceUtils.enableRotation();
-  await DeviceUtils.hideSystemUi(); // this might not work on Android once edge-to-edge is forced on that platform
+  await DeviceUtils.hideSystemUi();
 
-  // debugRepaintRainbowEnabled = true;
+  final preferences = await Prefs.initAsync();
 
-  Prefs.initAsync().then(
-    (Prefs initialPreferences) => runApp(
-      ProviderScope(
-        // uncomment observers line to log Riverpod changes:
-        // observers: kDebugMode ? [DebugRiverpodLogger()] : null,
-        overrides: [sharedPrefProvider.overrideWithValue(initialPreferences)],
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: appTheme,
-          home: const StartUp(),
+  runApp(
+    ProviderScope(
+      overrides: <Override>[
+        sharedPrefProvider.overrideWithValue(preferences),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
         ),
+        home: const FlStudioScreen(),
       ),
     ),
   );
-}
-
-class StartUp extends ConsumerWidget {
-  const StartUp();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Don't `watch` state for change. Only `read` value on startup.
-    return ref.read(splashScreenProv) ? const SplashScreen() : const FlStudioScreen();
-  }
 }
