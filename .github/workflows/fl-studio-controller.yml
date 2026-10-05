@@ -1,9 +1,6 @@
 name: FL Studio Controller CI
 
 on:
-  push:
-    branches:
-      - feat/fl-studio-controller
   pull_request:
     branches:
       - main_2025
@@ -48,12 +45,12 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build arm64 preview APK
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: midi-poly-grid-fl-studio-debug
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: midi-poly-grid-fl-studio-arm64
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
