@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:beat_pads/services/input/multi_touch_note_router.dart';
 import 'package:beat_pads/services/input/touch_geometry.dart';
 import 'package:beat_pads/services/protocol/axyp_event.dart';
+import 'package:beat_pads/services/session/studio_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -98,6 +99,42 @@ void main() {
       expect(geometry.fretAt(const Offset(20, 100)), isNull);
       expect(geometry.fretAt(const Offset(60, 100)), 0);
       expect(geometry.fretAt(const Offset(699, 100)), 7);
+    });
+  });
+
+  group('StudioSession', () {
+    test('records AXYP note timing into a playable clip', () async {
+      final session = StudioSession();
+      session.startRecording();
+
+      session.ingest(
+        const AxypNoteOn(
+          sequence: 1,
+          timestampMicros: 1,
+          channel: 0,
+          pointerId: 8,
+          note: 60,
+          velocity: 105,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      session.ingest(
+        const AxypNoteOff(
+          sequence: 2,
+          timestampMicros: 2,
+          channel: 0,
+          pointerId: 8,
+          note: 60,
+        ),
+      );
+      session.stopRecording();
+
+      expect(session.clip.notes, hasLength(1));
+      expect(session.clip.notes.single.note, 60);
+      expect(session.clip.notes.single.velocity, 105);
+      expect(session.clip.notes.single.durationMicros, greaterThan(0));
+      expect(session.clip.lengthMicros, greaterThan(0));
+      session.dispose();
     });
   });
 
