@@ -7,6 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+enum _KeyboardSwipeMode {
+  glissando('滑奏', Icons.swipe_rounded),
+  scroll('滚动', Icons.swap_horiz_rounded),
+  pitch('弯音', Icons.multiline_chart_rounded);
+
+  const _KeyboardSwipeMode(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
 enum _TouchInstrument {
   keyboard('键盘', Icons.piano),
   guitar('吉他', Icons.music_note_rounded),
@@ -36,6 +46,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   _TouchInstrument _instrument = _TouchInstrument.keyboard;
   int _keyboardBaseNote = 48;
+  _KeyboardSwipeMode _keyboardSwipeMode = _KeyboardSwipeMode.glissando;
   int _fpcBaseNote = 36;
   double _pitch = 0;
   double _mod = 0;
@@ -274,8 +285,18 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             touchDynamics: touchDynamics,
             sustain: _sustain,
             onSustainChanged: _setSustain,
+            swipeMode: _keyboardSwipeMode,
+            onSwipeModeChanged: (mode) {
+              setState(() => _keyboardSwipeMode = mode);
+              _resetPitch();
+            },
             onPointerNoteOn: _pointerNoteOn,
             onPointerNoteOff: _pointerNoteOff,
+            onPitchGesture: _setPitch,
+            onPitchGestureEnd: _resetPitch,
+            onBaseNoteChanged: (note) {
+              setState(() => _keyboardBaseNote = note.clamp(0, 114).toInt());
+            },
             onOctaveDown: () {
               setState(() {
                 _keyboardBaseNote =
@@ -774,8 +795,13 @@ class _KeyboardInstrumentView extends StatelessWidget {
     required this.touchDynamics,
     required this.sustain,
     required this.onSustainChanged,
+    required this.swipeMode,
+    required this.onSwipeModeChanged,
     required this.onPointerNoteOn,
     required this.onPointerNoteOff,
+    required this.onPitchGesture,
+    required this.onPitchGestureEnd,
+    required this.onBaseNoteChanged,
     required this.onOctaveDown,
     required this.onOctaveUp,
   });
@@ -788,8 +814,13 @@ class _KeyboardInstrumentView extends StatelessWidget {
   final bool touchDynamics;
   final bool sustain;
   final ValueChanged<bool> onSustainChanged;
+  final _KeyboardSwipeMode swipeMode;
+  final ValueChanged<_KeyboardSwipeMode> onSwipeModeChanged;
   final PointerNoteOn onPointerNoteOn;
   final PointerNoteOff onPointerNoteOff;
+  final ValueChanged<double> onPitchGesture;
+  final VoidCallback onPitchGestureEnd;
+  final ValueChanged<int> onBaseNoteChanged;
   final VoidCallback onOctaveDown;
   final VoidCallback onOctaveUp;
 
@@ -800,73 +831,167 @@ class _KeyboardInstrumentView extends StatelessWidget {
       color: const Color(0xFF101010),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-        child: Column(
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, outerConstraints) {
+            final landscape = outerConstraints.maxWidth > outerConstraints.maxHeight;
+            return Column(
               children: [
-                IconButton(
-                  tooltip: '降低八度',
-                  onPressed: onOctaveDown,
-                  icon: const Icon(Icons.remove_rounded),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: '降低八度',
+                      onPressed: onOctaveDown,
+                      icon: const Icon(Icons.remove_rounded),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Text(MidiUtils.getNoteName(baseNote)),
+                    ),
+                    IconButton(
+                      tooltip: '升高八度',
+                      onPressed: onOctaveUp,
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                    if (landscape) ...[
+                      const SizedBox(width: 8),
+                      SegmentedButton<_KeyboardSwipeMode>(
+                        showSelectedIcon: false,
+                        segments: [
+                          for (final mode in _KeyboardSwipeMode.values)
+                            ButtonSegment(
+                              value: mode,
+                              icon: Icon(mode.icon, size: 16),
+                              label: Text(mode.label),
+                            ),
+                        ],
+                        selected: <_KeyboardSwipeMode>{swipeMode},
+                        onSelectionChanged: (selection) {
+                          onSwipeModeChanged(selection.first);
+                        },
+                      ),
+                    ],
+                    const Spacer(),
+                    FilterChip(
+                      label: const Text('延音'),
+                      avatar: const Icon(Icons.pedal_bike_rounded, size: 14),
+                      selected: sustain,
+                      onSelected: onSustainChanged,
+                    ),
+                    if (scaleLock) ...[
+                      const SizedBox(width: 8),
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.lock_rounded, size: 14),
+                        label: Text(scale.label),
+                      ),
+                    ],
+                  ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Text(MidiUtils.getNoteName(baseNote)),
-                ),
-                IconButton(
-                  tooltip: '升高八度',
-                  onPressed: onOctaveUp,
-                  icon: const Icon(Icons.add_rounded),
-                ),
-                const Spacer(),
-                FilterChip(
-                  label: const Text('延音'),
-                  avatar: const Icon(Icons.pedal_bike_rounded, size: 14),
-                  selected: sustain,
-                  onSelected: onSustainChanged,
-                ),
-                if (scaleLock) ...[
-                  const SizedBox(width: 8),
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    avatar: const Icon(Icons.lock_rounded, size: 14),
-                    label: Text(scale.label),
+                if (landscape) ...[
+                  const SizedBox(height: 4),
+                  _PianoRangeStrip(
+                    baseNote: baseNote,
+                    onChanged: onBaseNoteChanged,
                   ),
                 ],
+                const SizedBox(height: 6),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final size = Size(
+                        constraints.maxWidth,
+                        constraints.maxHeight,
+                      );
+                      final noteCount = TouchViewportPolicy.pianoNoteCount(size);
+                      return _PianoKeyboard(
+                        baseNote: baseNote,
+                        noteCount: noteCount,
+                        velocity: velocity,
+                        scale: scale,
+                        scaleRoot: scaleRoot,
+                        scaleLock: scaleLock,
+                        touchDynamics: touchDynamics,
+                        swipeMode:
+                            landscape ? swipeMode : _KeyboardSwipeMode.glissando,
+                        onScrollNotes: (delta) {
+                          onBaseNoteChanged(baseNote + delta);
+                        },
+                        onPitchGesture: onPitchGesture,
+                        onPitchGestureEnd: onPitchGestureEnd,
+                        onNoteOn: onPointerNoteOn,
+                        onNoteOff: onPointerNoteOff,
+                      );
+                    },
+                  ),
+                ),
               ],
-            ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final size = Size(
-                    constraints.maxWidth,
-                    constraints.maxHeight,
-                  );
-                  final noteCount = TouchViewportPolicy.pianoNoteCount(size);
-                  return _PianoKeyboard(
-                    baseNote: baseNote,
-                    noteCount: noteCount,
-                    velocity: velocity,
-                    scale: scale,
-                    scaleRoot: scaleRoot,
-                    scaleLock: scaleLock,
-                    touchDynamics: touchDynamics,
-                    onNoteOn: onPointerNoteOn,
-                    onNoteOff: onPointerNoteOff,
-                  );
-                },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PianoRangeStrip extends StatelessWidget {
+  const _PianoRangeStrip({
+    required this.baseNote,
+    required this.onChanged,
+  });
+
+  final int baseNote;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 32,
+      child: Row(
+        children: [
+          Text(
+            '全音域',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 7,
+                ),
+                overlayShape: const RoundSliderOverlayShape(
+                  overlayRadius: 14,
+                ),
+              ),
+              child: Slider(
+                min: 0,
+                max: 114,
+                divisions: 114,
+                value: baseNote.clamp(0, 114).toDouble(),
+                activeColor: scheme.primary,
+                label: MidiUtils.getNoteName(baseNote),
+                onChanged: (value) => onChanged(value.round()),
               ),
             ),
-          ],
-        ),
+          ),
+          SizedBox(
+            width: 44,
+            child: Text(
+              MidiUtils.getNoteName(baseNote),
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -880,6 +1005,10 @@ class _FretboardView extends StatefulWidget {
     required this.frets,
     required this.velocity,
     required this.touchDynamics,
+    required this.swipeMode,
+    required this.onScrollNotes,
+    required this.onPitchGesture,
+    required this.onPitchGestureEnd,
     required this.onNoteOn,
     required this.onNoteOff,
   });
@@ -890,6 +1019,10 @@ class _FretboardView extends StatefulWidget {
   final int frets;
   final int velocity;
   final bool touchDynamics;
+  final _KeyboardSwipeMode swipeMode;
+  final ValueChanged<int> onScrollNotes;
+  final ValueChanged<double> onPitchGesture;
+  final VoidCallback onPitchGestureEnd;
   final PointerNoteOn onNoteOn;
   final PointerNoteOff onNoteOff;
 
@@ -3161,6 +3294,9 @@ class _PianoKeyboard extends StatefulWidget {
 class _PianoKeyboardState extends State<_PianoKeyboard> {
   static const Set<int> _blackPitchClasses = <int>{1, 3, 6, 8, 10};
 
+  final Map<int, double> _gestureOriginX = <int, double>{};
+  final Map<int, double> _scrollRemainder = <int, double>{};
+
   late final MultiTouchNoteRouter _touches = MultiTouchNoteRouter(
     onNoteOn: (
       int note, {
@@ -3233,6 +3369,11 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
     List<int> notes,
     List<int> whiteNotes,
   ) {
+    _gestureOriginX[event.pointer] = event.localPosition.dx;
+    _scrollRemainder[event.pointer] = 0;
+
+    if (widget.swipeMode == _KeyboardSwipeMode.scroll) return;
+
     final note = _noteAt(event.localPosition, size, notes, whiteNotes);
     if (note == null) return;
     _touches.down(
@@ -3253,6 +3394,32 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
     List<int> notes,
     List<int> whiteNotes,
   ) {
+    if (widget.swipeMode == _KeyboardSwipeMode.scroll) {
+      final whiteWidth = size.width / whiteNotes.length;
+      final accumulated =
+          (_scrollRemainder[event.pointer] ?? 0) + event.delta.dx;
+      final threshold = math.max(14.0, whiteWidth * 0.72);
+      if (accumulated.abs() >= threshold) {
+        final steps = (accumulated / threshold).truncate();
+        widget.onScrollNotes(-steps);
+        _scrollRemainder[event.pointer] =
+            accumulated - steps * threshold;
+      } else {
+        _scrollRemainder[event.pointer] = accumulated;
+      }
+      return;
+    }
+
+    if (widget.swipeMode == _KeyboardSwipeMode.pitch) {
+      final origin = _gestureOriginX[event.pointer] ?? event.localPosition.dx;
+      final bend =
+          ((event.localPosition.dx - origin) / math.max(80.0, size.width * 0.22))
+              .clamp(-1.0, 1.0)
+              .toDouble();
+      widget.onPitchGesture(bend);
+      return;
+    }
+
     final note = _noteAt(event.localPosition, size, notes, whiteNotes);
     _touches.move(
       event.pointer,
@@ -3267,7 +3434,15 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
   }
 
   void _up(int pointer) {
-    _touches.up(pointer);
+    _gestureOriginX.remove(pointer);
+    _scrollRemainder.remove(pointer);
+
+    if (widget.swipeMode != _KeyboardSwipeMode.scroll) {
+      _touches.up(pointer);
+    }
+    if (widget.swipeMode == _KeyboardSwipeMode.pitch) {
+      widget.onPitchGestureEnd();
+    }
     if (mounted) setState(() {});
   }
 
@@ -3277,7 +3452,8 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
     if (oldWidget.baseNote != widget.baseNote ||
         oldWidget.scale != widget.scale ||
         oldWidget.scaleRoot != widget.scaleRoot ||
-        oldWidget.scaleLock != widget.scaleLock) {
+        oldWidget.scaleLock != widget.scaleLock ||
+        oldWidget.swipeMode != widget.swipeMode) {
       _touches.cancelAll();
     }
   }
