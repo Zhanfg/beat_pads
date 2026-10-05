@@ -708,7 +708,7 @@ class _WorkspaceNavigation extends StatelessWidget {
   }
 }
 
-class _TracksWorkspace extends StatelessWidget {
+class _TracksWorkspace extends StatefulWidget {
   const _TracksWorkspace({
     required this.session,
     required this.instrument,
@@ -726,32 +726,95 @@ class _TracksWorkspace extends StatelessWidget {
   final VoidCallback onClear;
 
   @override
+  State<_TracksWorkspace> createState() => _TracksWorkspaceState();
+}
+
+class _TracksWorkspaceState extends State<_TracksWorkspace> {
+  bool _pianoRoll = false;
+
+  StudioSession get session => widget.session;
+
+  void _addTrack() {
+    session.addTrack(
+      instrumentId: widget.instrument.name,
+      name: '${widget.instrument.label} ${session.project.tracks.length + 1}',
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final clip = session.clip;
+    final selectedTrack = session.selectedTrack;
+    final selectedClip = session.selectedClip;
+
     return ColoredBox(
       color: const Color(0xFF101010),
       child: Column(
         children: [
           Container(
-            height: 54,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: const BoxDecoration(
               color: Color(0xFF1B1B1B),
               border: Border(bottom: BorderSide(color: Colors.white10)),
             ),
             child: Row(
               children: [
-                Icon(instrument.icon, size: 20),
+                Icon(
+                  _pianoRoll
+                      ? Icons.edit_note_rounded
+                      : Icons.view_timeline_rounded,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
-                Text(
-                  '${instrument.label} · 轨道 1',
-                  style: Theme.of(context).textTheme.titleSmall,
+                Flexible(
+                  child: Text(
+                    '${session.project.name} · ${selectedTrack?.name ?? "无轨道"}',
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.view_timeline_rounded, size: 16),
+                      label: Text('编排'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.edit_note_rounded, size: 16),
+                      label: Text('钢琴卷帘'),
+                    ),
+                  ],
+                  selected: <bool>{_pianoRoll},
+                  onSelectionChanged: (value) {
+                    setState(() => _pianoRoll = value.first);
+                  },
                 ),
                 const Spacer(),
                 IconButton(
-                  tooltip: '播放本地片段',
-                  onPressed: clip.isEmpty ? null : onPlay,
+                  tooltip: '撤销',
+                  onPressed: session.canUndo ? session.undo : null,
+                  icon: const Icon(Icons.undo_rounded),
+                ),
+                IconButton(
+                  tooltip: '重做',
+                  onPressed: session.canRedo ? session.redo : null,
+                  icon: const Icon(Icons.redo_rounded),
+                ),
+                IconButton(
+                  tooltip: '添加轨道',
+                  onPressed: _addTrack,
+                  icon: const Icon(Icons.add_rounded),
+                ),
+                IconButton(
+                  tooltip: '播放工程',
+                  onPressed: session.project.tracks.isEmpty
+                      ? null
+                      : widget.onPlay,
                   icon: Icon(
                     session.playing
                         ? Icons.pause_circle_filled_rounded
@@ -759,8 +822,8 @@ class _TracksWorkspace extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: session.recording ? '结束录制' : '录制到本地轨道',
-                  onPressed: onRecord,
+                  tooltip: session.recording ? '结束录制' : '录制到所选轨道',
+                  onPressed: widget.onRecord,
                   color: session.recording ? scheme.error : null,
                   icon: Icon(
                     session.recording
@@ -770,29 +833,45 @@ class _TracksWorkspace extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: '停止',
-                  onPressed: onStop,
+                  onPressed: widget.onStop,
                   icon: const Icon(Icons.stop_rounded),
-                ),
-                IconButton(
-                  tooltip: '清空片段',
-                  onPressed: clip.isEmpty ? null : onClear,
-                  icon: const Icon(Icons.delete_outline_rounded),
                 ),
               ],
             ),
           ),
+          if (selectedClip != null)
+            _ClipEditToolbar(session: session),
           Expanded(
-            child: clip.isEmpty && !session.recording
-                ? Center(
-                    child: Text(
-                      '按录制后返回“乐器”演奏，AXYP 音符会写入本地轨道。',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  )
-                : _RecordedClipLane(
-                    clip: clip,
-                    recording: session.recording,
-                  ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 760;
+                final trackList = _ProjectTrackList(
+                  session: session,
+                  onAddTrack: _addTrack,
+                );
+                final editor = _pianoRoll
+                    ? _PianoRollEditor(session: session)
+                    : _ProjectTimeline(session: session);
+
+                if (wide) {
+                  return Row(
+                    children: [
+                      SizedBox(width: 238, child: trackList),
+                      const VerticalDivider(width: 1, color: Colors.white10),
+                      Expanded(child: editor),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    SizedBox(height: 118, child: trackList),
+                    const Divider(height: 1, color: Colors.white10),
+                    Expanded(child: editor),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -800,104 +879,613 @@ class _TracksWorkspace extends StatelessWidget {
   }
 }
 
-class _RecordedClipLane extends StatelessWidget {
-  const _RecordedClipLane({
-    required this.clip,
-    required this.recording,
+class _ProjectTrackList extends StatelessWidget {
+  const _ProjectTrackList({
+    required this.session,
+    required this.onAddTrack,
   });
 
-  final StudioClip clip;
-  final bool recording;
+  final StudioSession session;
+  final VoidCallback onAddTrack;
 
   @override
   Widget build(BuildContext context) {
-    final notes = clip.notes;
-    if (notes.isEmpty) {
+    final tracks = session.project.tracks;
+    if (tracks.isEmpty) {
       return Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (recording) ...[
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 10),
-            ],
-            const Text('正在等待演奏输入…'),
-          ],
+        child: FilledButton.icon(
+          onPressed: onAddTrack,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('添加第一条轨道'),
         ),
       );
     }
 
-    final minNote = notes.map((note) => note.note).reduce(math.min);
-    final maxNote = notes.map((note) => note.note).reduce(math.max);
-    final span = math.max(1, maxNote - minNote + 1);
-    final length = math.max(1, clip.lengthMicros);
-
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFF171717),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Stack(
-              children: [
-                for (int beat = 1; beat < 8; beat++)
-                  Positioned(
-                    left: constraints.maxWidth * beat / 8,
-                    top: 0,
-                    bottom: 0,
-                    child: const VerticalDivider(
-                      width: 1,
-                      color: Colors.white10,
-                    ),
-                  ),
-                for (final note in notes)
-                  Positioned(
-                    left: constraints.maxWidth * note.startMicros / length,
-                    width: math.max(
-                      4.0,
-                      constraints.maxWidth * note.durationMicros / length,
-                    ),
-                    top: constraints.maxHeight *
-                        (maxNote - note.note) /
-                        span,
-                    height: math.max(
-                      7.0,
-                      constraints.maxHeight / span * 0.72,
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primaryContainer,
-                        borderRadius: BorderRadius.circular(4),
+    return ListView.separated(
+      padding: const EdgeInsets.all(8),
+      scrollDirection: MediaQuery.sizeOf(context).width < 760
+          ? Axis.horizontal
+          : Axis.vertical,
+      itemCount: tracks.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 6, height: 6),
+      itemBuilder: (context, index) {
+        final track = tracks[index];
+        final selected = session.selectedTrack?.id == track.id;
+        final instrument = _TouchInstrument.values.where(
+          (item) => item.name == track.instrumentId,
+        ).firstOrNull;
+        return SizedBox(
+          width: MediaQuery.sizeOf(context).width < 760 ? 210 : null,
+          child: Material(
+            color: selected
+                ? Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.38)
+                : Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => session.selectTrack(track.id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                child: Row(
+                  children: [
+                    Icon(instrument?.icon ?? Icons.audiotrack_rounded, size: 18),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            track.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          Text(
+                            '${instrument?.label ?? track.instrumentId} · ${track.clips.length} 个片段',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-              ],
+                    _TinyToggle(
+                      label: 'M',
+                      selected: track.muted,
+                      onTap: () => session.setTrackMute(
+                        track.id,
+                        !track.muted,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    _TinyToggle(
+                      label: 'S',
+                      selected: track.solo,
+                      onTap: () => session.setTrackSolo(
+                        track.id,
+                        !track.solo,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TinyToggle extends StatelessWidget {
+  const _TinyToggle({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(7),
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? scheme.primaryContainer : scheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: selected ? scheme.primary : scheme.outlineVariant,
+          ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
       ),
     );
   }
 }
 
+class _ClipEditToolbar extends StatelessWidget {
+  const _ClipEditToolbar({required this.session});
+
+  final StudioSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final clip = session.selectedClip;
+    if (clip == null) return const SizedBox.shrink();
+
+    final beatMicros = (60000000 / session.project.tempo).round();
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        children: [
+          _EditorAction(
+            label: 'Q 1/16',
+            icon: Icons.grid_4x4_rounded,
+            onTap: () => session.quantizeSelectedClip(division: 16),
+          ),
+          _EditorAction(
+            label: '-12',
+            icon: Icons.keyboard_double_arrow_down_rounded,
+            onTap: () => session.transposeSelectedClip(-12),
+          ),
+          _EditorAction(
+            label: '-1',
+            icon: Icons.remove_rounded,
+            onTap: () => session.transposeSelectedClip(-1),
+          ),
+          _EditorAction(
+            label: '+1',
+            icon: Icons.add_rounded,
+            onTap: () => session.transposeSelectedClip(1),
+          ),
+          _EditorAction(
+            label: '+12',
+            icon: Icons.keyboard_double_arrow_up_rounded,
+            onTap: () => session.transposeSelectedClip(12),
+          ),
+          _EditorAction(
+            label: '力度 -10',
+            icon: Icons.volume_down_rounded,
+            onTap: () => session.changeSelectedVelocity(-10),
+          ),
+          _EditorAction(
+            label: '力度 +10',
+            icon: Icons.volume_up_rounded,
+            onTap: () => session.changeSelectedVelocity(10),
+          ),
+          _EditorAction(
+            label: '左移',
+            icon: Icons.arrow_back_rounded,
+            onTap: () => session.moveSelectedClip(-beatMicros),
+          ),
+          _EditorAction(
+            label: '右移',
+            icon: Icons.arrow_forward_rounded,
+            onTap: () => session.moveSelectedClip(beatMicros),
+          ),
+          _EditorAction(
+            label: clip.loop ? '取消循环' : '循环',
+            icon: Icons.loop_rounded,
+            selected: clip.loop,
+            onTap: () => session.setSelectedClipLoop(!clip.loop),
+          ),
+          _EditorAction(
+            label: '复制',
+            icon: Icons.content_copy_rounded,
+            onTap: session.duplicateSelectedClip,
+          ),
+          _EditorAction(
+            label: '删除',
+            icon: Icons.delete_outline_rounded,
+            destructive: true,
+            onTap: session.deleteSelectedClip,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditorAction extends StatelessWidget {
+  const _EditorAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.selected = false,
+    this.destructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool selected;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ActionChip(
+        avatar: Icon(
+          icon,
+          size: 16,
+          color: destructive
+              ? scheme.error
+              : selected
+                  ? scheme.primary
+                  : null,
+        ),
+        label: Text(label),
+        onPressed: onTap,
+        backgroundColor:
+            selected ? scheme.primaryContainer.withValues(alpha: 0.45) : null,
+      ),
+    );
+  }
+}
+
+class _ProjectTimeline extends StatelessWidget {
+  const _ProjectTimeline({required this.session});
+
+  final StudioSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final tracks = session.project.tracks;
+    if (tracks.isEmpty) {
+      return const Center(
+        child: Text('先添加轨道，然后开始录制或进入钢琴卷帘写入音符。'),
+      );
+    }
+
+    final projectLength = math.max(
+      session.projectLengthMicros,
+      (60000000 / session.project.tempo * 16).round(),
+    );
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(10),
+      itemCount: tracks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 7),
+      itemBuilder: (context, trackIndex) {
+        final track = tracks[trackIndex];
+        return SizedBox(
+          height: 66,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 92,
+                child: Text(
+                  track.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.hardEdge,
+                        children: [
+                          for (int bar = 1; bar < 8; bar++)
+                            Positioned(
+                              left: constraints.maxWidth * bar / 8,
+                              top: 0,
+                              bottom: 0,
+                              child: const VerticalDivider(
+                                width: 1,
+                                color: Colors.white10,
+                              ),
+                            ),
+                          for (final clip in track.clips)
+                            Positioned(
+                              left: constraints.maxWidth *
+                                  clip.startMicros /
+                                  projectLength,
+                              top: 7,
+                              bottom: 7,
+                              width: math.max(
+                                34.0,
+                                constraints.maxWidth *
+                                    math.max(1, clip.lengthMicros) /
+                                    projectLength,
+                              ),
+                              child: _TimelineClip(
+                                clip: clip,
+                                selected:
+                                    session.selectedClip?.id == clip.id,
+                                onTap: () {
+                                  session.selectTrack(track.id);
+                                  session.selectClip(clip.id);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TimelineClip extends StatelessWidget {
+  const _TimelineClip({
+    required this.clip,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final StudioClip clip;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected ? scheme.primary : scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            children: [
+              if (clip.loop) ...[
+                const Icon(Icons.loop_rounded, size: 13),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  clip.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: selected
+                            ? scheme.onPrimary
+                            : scheme.onPrimaryContainer,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PianoRollEditor extends StatelessWidget {
+  const _PianoRollEditor({required this.session});
+
+  final StudioSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final clip = session.selectedClip;
+    if (session.selectedTrack == null) {
+      return const Center(child: Text('先选择或新建一条轨道。'));
+    }
+    if (clip == null) {
+      return Center(
+        child: FilledButton.icon(
+          onPressed: () {
+            final step =
+                (60000000 / session.project.tempo * 4 / 16).round();
+            session.addNoteToSelectedClip(
+              note: 60,
+              startMicros: 0,
+              durationMicros: step,
+            );
+          },
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('创建空片段并写入 C4'),
+        ),
+      );
+    }
+
+    final stepMicros =
+        math.max(1000, (60000000 / session.project.tempo * 4 / 16).round());
+    final visibleSteps =
+        math.max(16, (clip.lengthMicros / stepMicros).ceil() + 2);
+    final highest = clip.notes.isEmpty
+        ? 71
+        : clip.notes.map((note) => note.note).reduce(math.max) + 2;
+    final topNote = highest.clamp(23, 127).toInt();
+    final bottomNote = math.max(0, topNote - 23);
+    const cellWidth = 48.0;
+    const cellHeight = 27.0;
+
+    return ClipRect(
+      child: InteractiveViewer(
+        constrained: false,
+        minScale: 0.7,
+        maxScale: 2.4,
+        boundaryMargin: const EdgeInsets.all(80),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            final step =
+                (details.localPosition.dx / cellWidth).floor().clamp(
+                      0,
+                      visibleSteps - 1,
+                    );
+            final row =
+                (details.localPosition.dy / cellHeight).floor().clamp(0, 23);
+            final note = (topNote - row).clamp(bottomNote, topNote);
+            final start = step * stepMicros;
+
+            final index = clip.notes.indexWhere((item) {
+              final quantized = (item.startMicros / stepMicros).round();
+              return item.note == note && quantized == step;
+            });
+            if (index >= 0) {
+              session.removeNoteFromSelectedClip(index);
+            } else {
+              session.addNoteToSelectedClip(
+                note: note,
+                startMicros: start,
+                durationMicros: stepMicros,
+                velocity: 100,
+              );
+            }
+          },
+          child: CustomPaint(
+            size: Size(
+              visibleSteps * cellWidth,
+              24 * cellHeight,
+            ),
+            painter: _PianoRollPainter(
+              notes: clip.notes,
+              topNote: topNote,
+              bottomNote: bottomNote,
+              stepMicros: stepMicros,
+              cellWidth: cellWidth,
+              cellHeight: cellHeight,
+              colorScheme: Theme.of(context).colorScheme,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PianoRollPainter extends CustomPainter {
+  const _PianoRollPainter({
+    required this.notes,
+    required this.topNote,
+    required this.bottomNote,
+    required this.stepMicros,
+    required this.cellWidth,
+    required this.cellHeight,
+    required this.colorScheme,
+  });
+
+  final List<RecordedNote> notes;
+  final int topNote;
+  final int bottomNote;
+  final int stepMicros;
+  final double cellWidth;
+  final double cellHeight;
+  final ColorScheme colorScheme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final background = Paint()..color = colorScheme.surfaceContainerLowest;
+    canvas.drawRect(Offset.zero & size, background);
+
+    final minor = Paint()
+      ..color = colorScheme.outlineVariant.withValues(alpha: 0.30)
+      ..strokeWidth = 0.7;
+    final major = Paint()
+      ..color = colorScheme.outline.withValues(alpha: 0.42)
+      ..strokeWidth = 1.1;
+
+    final columns = (size.width / cellWidth).ceil();
+    for (int column = 0; column <= columns; column++) {
+      final x = column * cellWidth;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        column % 4 == 0 ? major : minor,
+      );
+    }
+
+    const rows = 24;
+    for (int row = 0; row <= rows; row++) {
+      final y = row * cellHeight;
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        row % 12 == 0 ? major : minor,
+      );
+    }
+
+    final notePaint = Paint()..color = colorScheme.primary;
+    final outline = Paint()
+      ..color = colorScheme.onPrimary.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+
+    for (final note in notes) {
+      if (note.note < bottomNote || note.note > topNote) continue;
+      final row = topNote - note.note;
+      final x = note.startMicros / stepMicros * cellWidth;
+      final width = math.max(
+        8.0,
+        note.durationMicros / stepMicros * cellWidth - 2,
+      );
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          x + 1,
+          row * cellHeight + 2,
+          width,
+          cellHeight - 4,
+        ),
+        const Radius.circular(5),
+      );
+      canvas.drawRRect(rect, notePaint);
+      canvas.drawRRect(rect, outline);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PianoRollPainter oldDelegate) {
+    return oldDelegate.notes != notes ||
+        oldDelegate.topNote != topNote ||
+        oldDelegate.stepMicros != stepMicros ||
+        oldDelegate.colorScheme != colorScheme;
+  }
+}
+
 class _MixerWorkspace extends StatelessWidget {
   const _MixerWorkspace({
+    required this.session,
     required this.controls,
     required this.localAudioEnabled,
     required this.localAudioVolume,
     required this.localTone,
   });
 
+  final StudioSession session;
   final Widget controls;
   final bool localAudioEnabled;
   final int localAudioVolume;
@@ -905,6 +1493,7 @@ class _MixerWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tracks = session.project.tracks;
     return ColoredBox(
       color: const Color(0xFF101010),
       child: ListView(
@@ -920,9 +1509,142 @@ class _MixerWorkspace extends StatelessWidget {
                   : '本地监听已关闭',
             ),
           ),
-          const Divider(),
+          if (tracks.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '轨道混音',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            for (final track in tracks)
+              _MixerTrackStrip(
+                track: track,
+                selected: session.selectedTrack?.id == track.id,
+                onSelect: () => session.selectTrack(track.id),
+                onMute: (value) => session.setTrackMute(track.id, value),
+                onSolo: (value) => session.setTrackSolo(track.id, value),
+                onVolume: (value) => session.setTrackVolume(track.id, value),
+                onPan: (value) => session.setTrackPan(track.id, value),
+              ),
+          ],
+          const Divider(height: 26),
           controls,
         ],
+      ),
+    );
+  }
+}
+
+class _MixerTrackStrip extends StatelessWidget {
+  const _MixerTrackStrip({
+    required this.track,
+    required this.selected,
+    required this.onSelect,
+    required this.onMute,
+    required this.onSolo,
+    required this.onVolume,
+    required this.onPan,
+  });
+
+  final StudioTrack track;
+  final bool selected;
+  final VoidCallback onSelect;
+  final ValueChanged<bool> onMute;
+  final ValueChanged<bool> onSolo;
+  final ValueChanged<double> onVolume;
+  final ValueChanged<double> onPan;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final instrument = _TouchInstrument.values.where(
+      (item) => item.name == track.instrumentId,
+    ).firstOrNull;
+
+    return Card(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.28)
+          : scheme.surfaceContainerLow,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onSelect,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 12, 9),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Icon(instrument?.icon ?? Icons.audiotrack_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      track.name,
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  FilterChip(
+                    label: const Text('M'),
+                    selected: track.muted,
+                    onSelected: onMute,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 5),
+                  FilterChip(
+                    label: const Text('S'),
+                    selected: track.solo,
+                    onSelected: onSolo,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const SizedBox(width: 36, child: Text('音量')),
+                  Expanded(
+                    child: Slider(
+                      min: 0,
+                      max: 1.5,
+                      value: track.volume.clamp(0.0, 1.5),
+                      onChanged: onVolume,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 46,
+                    child: Text(
+                      '${(track.volume * 100).round()}%',
+                      textAlign: TextAlign.end,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const SizedBox(width: 36, child: Text('声像')),
+                  Expanded(
+                    child: Slider(
+                      min: -1,
+                      max: 1,
+                      divisions: 20,
+                      value: track.pan.clamp(-1.0, 1.0),
+                      onChanged: onPan,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 46,
+                    child: Text(
+                      track.pan.abs() < 0.05
+                          ? 'C'
+                          : track.pan < 0
+                              ? 'L${(track.pan.abs() * 100).round()}'
+                              : 'R${(track.pan * 100).round()}',
+                      textAlign: TextAlign.end,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
