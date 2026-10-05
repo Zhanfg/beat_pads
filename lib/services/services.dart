@@ -38,6 +38,7 @@ export 'state/device_connection.dart';
 export 'state/midi_receive.dart';
 export 'state/midi_send.dart';
 export 'state/settings_advanced.dart';
+export 'state/settings_fl_studio.dart';
 export 'state/settings_layout.dart';
 export 'state/settings_midi.dart';
 export 'state/settings_presets.dart';
