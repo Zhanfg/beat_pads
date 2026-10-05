@@ -1,33 +1,33 @@
 import 'package:beat_pads/services/services.dart';
 
 enum Layout {
-  customIntervals('Chromatic', custom: true, chromatic: true),
-  scaleNotesCustom('In Key', custom: true),
-  sequential('Chromatic: Sequential', chromatic: true),
-  scaleNotesOnly('In Key: Sequential'),
+  customIntervals('半音阶', custom: true, chromatic: true),
+  scaleNotesCustom('调内音', custom: true),
+  sequential('半音阶 · 顺序', chromatic: true),
+  scaleNotesOnly('调内音 · 顺序'),
   guitar(
-    'Guitar Tuning',
+    '吉他定弦',
     chromatic: true,
     defaultDimensions: NullableVector2Int(null, 6),
   ),
 
-  progrChange('Program Changes', chromatic: true),
+  progrChange('Program Change', chromatic: true),
 
   magicToneNetwork('Magic Tone Network'),
   xPressPadsStandard(
-    'XpressPads Standard',
+    'XpressPads 标准',
     resizable: false,
     defaultDimensions: NullableVector2Int(4, 4),
     gmPercussionLabels: true,
   ),
   xPressPadsLatinJazz(
-    'XpressPads Latin/Jazz',
+    'XpressPads 拉丁 / 爵士',
     resizable: false,
     defaultDimensions: NullableVector2Int(4, 4),
     gmPercussionLabels: true,
   ),
   xPressPadsXO(
-    'XpressPads for XO',
+    'XpressPads · XO',
     resizable: false,
     defaultDimensions: NullableVector2Int(4, 4),
   ),
