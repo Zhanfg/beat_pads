@@ -11,6 +11,12 @@ This branch adds a dedicated low-latency performance surface on top of Midi Poly
 - Connected MIDI-device status
 - Five learnable transport controls for FL Studio
 - Existing USB/Bluetooth MIDI device drawer remains available
+- Material 3 performance deck with adaptive dark color system
+- Five persistent scenes backed by the existing preset system
+- Scale Lock with Chromatic, Major, Minor, Dorian and Minor Pentatonic modes
+- Hardware-pressure Velocity mapping with safe fixed-Velocity fallback
+- Two-axis XY control with user-editable X/Y CC assignments
+- Four user-editable MIDI CC macro controls for FL Studio Link to controller
 
 ## FL Studio setup
 
@@ -36,10 +42,18 @@ The FL Studio workspace intentionally reuses the existing `flutter_midi_command`
 
 The existing Midi Poly Grid workflow remains unchanged. The FL Studio screen is an additive workspace reachable from the piano icon in the main menu.
 
+## 1.2.0 interaction model
+
+Smart-control settings are stored locally. Scale, root note, Scale Lock, Touch Dynamics and CC assignments survive restarts. Scene buttons P1–P5 reuse Midi Poly Grid's existing persistent preset system.
+
+Touch Dynamics uses real pressure data only when the platform reports a usable pressure range. Devices that expose a constant placeholder pressure keep the configured fixed Velocity, avoiding accidental full-velocity notes.
+
+The XY pad defaults to CC74/CC71 and the four macro controls default to CC20–CC23. All six assignments are editable from the controller UI.
+
 ## Next implementation targets
 
 - true piano geometry with glissando pointer hand-off
-- pressure/area-derived velocity when available
-- user-editable CC map and saved FL profiles
+- optional chord/voicing layer
 - Mackie/transport protocol experiment behind an opt-in setting
+- MIDI receive feedback for motor-style macro state
 - latency telemetry and Android USB-specific tuning
