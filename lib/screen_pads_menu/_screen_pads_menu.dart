@@ -1,5 +1,6 @@
 import 'package:beat_pads/screen_beat_pads/_screen_beat_pads.dart';
 import 'package:beat_pads/screen_beat_pads/button_presets.dart';
+import 'package:beat_pads/screen_fl_studio/fl_studio_screen.dart';
 import 'package:beat_pads/screen_pads_menu/menu_advanced.dart';
 import 'package:beat_pads/screen_pads_menu/menu_layout.dart';
 import 'package:beat_pads/screen_pads_menu/menu_midi.dart';
@@ -114,6 +115,18 @@ class PadMenuScreen extends ConsumerWidget {
           ),
 
           actions: [
+            IconButton(
+              tooltip: 'FL Studio Controller',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const FlStudioScreen(),
+                  ),
+                );
+              },
+              icon: Icon(Icons.piano, color: Palette.cadetBlue),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: DropdownButton(
