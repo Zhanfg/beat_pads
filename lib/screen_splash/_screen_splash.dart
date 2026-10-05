@@ -1,5 +1,5 @@
 import 'package:animated_text_kit/animated_text_kit.dart';
-import 'package:beat_pads/screen_pads_menu/_screen_pads_menu.dart';
+import 'package:beat_pads/screen_fl_studio/fl_studio_screen.dart';
 import 'package:beat_pads/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
@@ -28,7 +28,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Listener(
       onPointerDown: (_) {
-        Navigator.push(context, TransitionUtils.fade(PadMenuScreen()));
+        Navigator.pushReplacement(context, TransitionUtils.fade(const FlStudioScreen()));
       },
       child: Scaffold(
         backgroundColor:
@@ -112,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen> {
                                   repeatForever: true,
                                   animatedTexts: [
                                     FadeAnimatedText(
-                                      'Tap To Continue',
+                                      '点击进入',
                                       duration: const Duration(
                                         milliseconds: 1400,
                                       ),
