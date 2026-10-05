@@ -102,7 +102,7 @@ class SustainButtonDoubleTapState
             quarterTurns: 1,
             child: FittedBox(
               child: Text(
-                'Sustain',
+                '延音',
                 style: TextStyle(
                   fontSize: 100,
                   fontWeight: FontWeight.w500,
