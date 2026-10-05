@@ -169,17 +169,21 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
 
   Future<void> _playSession() async {
     _session.playProject(
-      noteOn: (track, note, velocity) {
+      noteOn: (track, note, velocity, voiceId) {
         final percussive = track.instrumentId == 'drums' ||
             track.instrumentId == 'smartDrums' ||
             track.instrumentId == 'beatSequencer';
         _performance.noteOn(
           note,
           velocity: velocity,
+          pointerId: voiceId,
           percussive: percussive,
         );
       },
-      noteOff: (_, note) => _performance.noteOff(note),
+      noteOff: (_, note, voiceId) => _performance.noteOff(
+        note,
+        pointerId: voiceId,
+      ),
     );
     await _sendMomentaryCc(111);
   }
