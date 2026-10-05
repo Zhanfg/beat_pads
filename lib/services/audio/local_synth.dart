@@ -4,10 +4,11 @@ import 'dart:math' as math;
 import 'package:beat_pads/services/state/settings_fl_studio.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
-/// Low-latency local monitor that runs independently from any MIDI connection.
+/// Low-latency local monitor that is independent from MIDI connectivity.
 ///
-/// MIDI output and local audio are intentionally separate paths: losing the
-/// FL Studio/USB connection must never make the touch instruments silent.
+/// The output-device lifecycle is explicit. Recent flutter_soloud versions may
+/// stop an idle output device; on Android that can otherwise leave valid voices
+/// queued behind a stopped/busy audio HAL.
 final class LocalSynth {
   LocalSynth._();
 
@@ -20,14 +21,30 @@ final class LocalSynth {
   AudioSource? _tonalSource;
   AudioSource? _drumSource;
   Future<void>? _initializing;
+  Future<void>? _deviceStarting;
+
+  bool _enabled = true;
   bool _sustain = false;
   double _bend = 0;
   double _master = 0.68;
   FlLocalTone _tone = FlLocalTone.warm;
 
-  bool get ready => _engine.isInitialized && _tonalSource != null;
+  bool get ready =>
+      _engine.isInitialized && _tonalSource != null && _drumSource != null;
 
-  Future<void> ensureReady() => _initializing ??= _init();
+  AudioDeviceState get deviceState => _engine.getAudioDeviceState();
+
+  Future<void> ensureReady() async {
+    if (ready) return;
+
+    final init = _initializing ??= _init();
+    try {
+      await init;
+    } catch (_) {
+      if (identical(_initializing, init)) _initializing = null;
+      rethrow;
+    }
+  }
 
   Future<void> _init() async {
     if (!_engine.isInitialized) {
@@ -37,9 +54,6 @@ final class LocalSynth {
         channels: Channels.stereo,
         lowLatency: true,
       );
-      // Keep the device warm enough for musical input, but still allow it to
-      // sleep after a longer idle period to avoid needless power drain.
-      _engine.setAudioDeviceIdleTimeout(const Duration(seconds: 20));
     }
 
     _tonalSource ??= await _engine.loadWaveform(
@@ -57,6 +71,34 @@ final class LocalSynth {
       0.0,
     );
     _engine.setWaveformFreq(_drumSource!, 110);
+
+    // A performance instrument should not let the device fall asleep while its
+    // local monitor is enabled. This avoids first-note loss on aggressive HALs.
+    _engine.setAudioDeviceIdleTimeout(null);
+    await _ensureDeviceStarted();
+  }
+
+  Future<void> _ensureDeviceStarted() async {
+    if (!_engine.isInitialized) return;
+
+    final state = _engine.getAudioDeviceState();
+    if (state == AudioDeviceState.started) return;
+
+    final existing = _deviceStarting;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    if (state == AudioDeviceState.starting) return;
+
+    final start = _engine.startAudioDevice();
+    _deviceStarting = start;
+    try {
+      await start;
+    } finally {
+      if (identical(_deviceStarting, start)) _deviceStarting = null;
+    }
   }
 
   WaveForm _waveFor(FlLocalTone tone) {
@@ -74,11 +116,26 @@ final class LocalSynth {
     required FlLocalTone tone,
   }) async {
     _master = (volume.clamp(0, 100) / 100).toDouble();
+
     if (!enabled) {
+      _enabled = false;
       panic();
+      if (_engine.isInitialized) {
+        _engine.setAudioDeviceIdleTimeout(Duration.zero);
+        try {
+          await _engine.stopAudioDevice();
+        } catch (_) {
+          // The UI toggle must remain usable even if the HAL is already gone.
+        }
+      }
       return;
     }
+
+    _enabled = true;
     await ensureReady();
+    _engine.setAudioDeviceIdleTimeout(null);
+    await _ensureDeviceStarted();
+
     if (_tone != tone && _tonalSource != null) {
       _tone = tone;
       _engine.setWaveform(_tonalSource!, _waveFor(tone));
@@ -90,7 +147,10 @@ final class LocalSynth {
     int velocity, {
     bool percussive = false,
   }) async {
+    if (!_enabled) return;
+
     await ensureReady();
+    await _ensureDeviceStarted();
 
     final note = midiNote.clamp(0, 127).toInt();
     final vel = velocity.clamp(1, 127).toInt();
@@ -108,6 +168,8 @@ final class LocalSynth {
       looping: !percussive,
       scale: baseScale * bendScale,
     );
+
+    if (!_engine.getIsValidVoiceHandle(handle)) return;
 
     _active.putIfAbsent(note, () => <SoundHandle>[]).add(handle);
     _engine.fadeVolume(
@@ -166,8 +228,8 @@ final class LocalSynth {
 
     for (final handle in handles) {
       if (!_engine.getIsValidVoiceHandle(handle)) continue;
-      _engine.fadeVolume(handle, 0, const Duration(milliseconds: 55));
-      _engine.scheduleStop(handle, const Duration(milliseconds: 65));
+      _engine.fadeVolume(handle, 0, const Duration(milliseconds: 45));
+      _engine.scheduleStop(handle, const Duration(milliseconds: 55));
     }
   }
 
