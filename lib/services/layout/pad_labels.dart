@@ -1,10 +1,10 @@
 import 'package:beat_pads/services/services.dart';
 
 enum PadLabels {
-  note('Note Names'),
-  solfege('Do Re Mi'),
-  value('Midi Value'),
-  none('None');
+  note('音名'),
+  solfege('唱名 Do Re Mi'),
+  value('MIDI 数值'),
+  none('不显示');
 
   const PadLabels(this.title);
   final String title;
