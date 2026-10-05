@@ -53,13 +53,14 @@ Portrait and landscape are not scaled copies.
 ### Session / editing
 - [x] AXYP note capture
 - [x] local clip recording and playback
-- [ ] multi-track project graph
-- [ ] Piano Roll editing
-- [ ] quantize / transpose / velocity editing
-- [ ] clip trim / split / duplicate / loop
-- [ ] undo/redo history
+- [x] multi-track project graph
+- [x] Piano Roll editing
+- [x] quantize / transpose / velocity editing
+- [x] clip move / duplicate / delete / real loop playback
+- [ ] clip trim / split
+- [x] undo/redo history
 - [ ] automation lanes
-- [ ] project save/load and autosave
+- [x] multi-project save/load and autosave
 
 ### Audio
 - [x] standalone low-latency local output
@@ -79,3 +80,14 @@ Portrait and landscape are not scaled copies.
 - [ ] desktop AXYP companion
 - [ ] bidirectional MIDI feedback
 - [ ] DAW-specific scripts/profiles
+
+## Development release semantics
+
+- 1.8.x is a development line and is not a declaration that the first product release is complete.
+- The first user-approved release will be renamed to 0.9.0.
+- A green CI build proves the branch builds and its automated invariants pass; it does not substitute for product acceptance or OnePlus 13 hardware validation.
+- Controls are only exposed as completed when they affect the runtime. For example, track pan was intentionally removed until a real per-track audio bus exists.
+
+## 1.8 minimum closed-loop baseline
+
+The minimum closed loop is: create project → add tracks → perform/record → edit notes/clips → arrange → basic mix → play → save/load multiple projects → resume after restart.
