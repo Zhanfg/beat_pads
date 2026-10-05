@@ -15,8 +15,9 @@ final class LocalSynth {
   static final LocalSynth instance = LocalSynth._();
 
   final SoLoud _engine = SoLoud.instance;
-  final Map<int, List<SoundHandle>> _active = <int, List<SoundHandle>>{};
-  final Set<int> _sustainedNotes = <int>{};
+  final Map<(int, int), List<SoundHandle>> _active =
+      <(int, int), List<SoundHandle>>{};
+  final Set<(int, int)> _sustainedVoices = <(int, int)>{};
 
   AudioSource? _tonalSource;
   AudioSource? _drumSource;
@@ -146,6 +147,7 @@ final class LocalSynth {
     int midiNote,
     int velocity, {
     bool percussive = false,
+    int voiceId = -1,
   }) async {
     if (!_enabled) return;
 
@@ -171,7 +173,8 @@ final class LocalSynth {
 
     if (!_engine.getIsValidVoiceHandle(handle)) return;
 
-    _active.putIfAbsent(note, () => <SoundHandle>[]).add(handle);
+    final voice = (voiceId, note);
+    _active.putIfAbsent(voice, () => <SoundHandle>[]).add(handle);
     _engine.fadeVolume(
       handle,
       targetVolume,
@@ -185,26 +188,30 @@ final class LocalSynth {
         const Duration(milliseconds: 145),
       );
       _engine.scheduleStop(handle, const Duration(milliseconds: 155));
-      Timer(const Duration(milliseconds: 170), () => _forget(note, handle));
+      Timer(
+        const Duration(milliseconds: 170),
+        () => _forget(voice, handle),
+      );
     }
   }
 
-  void noteOff(int midiNote) {
+  void noteOff(int midiNote, {int voiceId = -1}) {
     final note = midiNote.clamp(0, 127).toInt();
+    final voice = (voiceId, note);
     if (_sustain) {
-      _sustainedNotes.add(note);
+      _sustainedVoices.add(voice);
       return;
     }
-    _releaseNote(note);
+    _releaseVoice(voice);
   }
 
   void setSustain(bool enabled) {
     _sustain = enabled;
     if (!enabled) {
-      final notes = _sustainedNotes.toList(growable: false);
-      _sustainedNotes.clear();
-      for (final note in notes) {
-        _releaseNote(note);
+      final voices = _sustainedVoices.toList(growable: false);
+      _sustainedVoices.clear();
+      for (final voice in voices) {
+        _releaseVoice(voice);
       }
     }
   }
@@ -213,7 +220,7 @@ final class LocalSynth {
     _bend = bend.clamp(-1.0, 1.0);
     final bendScale = math.pow(2, (_bend * 2) / 12).toDouble();
     for (final entry in _active.entries) {
-      final baseScale = math.pow(2, (entry.key - 69) / 12).toDouble();
+      final baseScale = math.pow(2, (entry.key.$2 - 69) / 12).toDouble();
       for (final handle in entry.value) {
         if (_engine.getIsValidVoiceHandle(handle)) {
           _engine.setRelativePlaySpeed(handle, baseScale * bendScale);
@@ -222,8 +229,8 @@ final class LocalSynth {
     }
   }
 
-  void _releaseNote(int note) {
-    final handles = _active.remove(note);
+  void _releaseVoice((int, int) voice) {
+    final handles = _active.remove(voice);
     if (handles == null) return;
 
     for (final handle in handles) {
@@ -233,15 +240,15 @@ final class LocalSynth {
     }
   }
 
-  void _forget(int note, SoundHandle handle) {
-    final handles = _active[note];
+  void _forget((int, int) voice, SoundHandle handle) {
+    final handles = _active[voice];
     if (handles == null) return;
     handles.remove(handle);
-    if (handles.isEmpty) _active.remove(note);
+    if (handles.isEmpty) _active.remove(voice);
   }
 
   void panic() {
-    _sustainedNotes.clear();
+    _sustainedVoices.clear();
     _active.clear();
     if (_engine.isInitialized) {
       _engine.stopAll();
