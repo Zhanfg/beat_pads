@@ -1,7 +1,7 @@
 name: beat_pads
 description: AXYP-powered mobile instrument and FL Studio companion
 publish_to: "none"
-version: 1.5.0+139
+version: 1.6.0+140
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
@@ -24,7 +24,6 @@ dependencies:
 
 dev_dependencies:
   # austerity: ^1.0.0
-  flutter_launcher_icons: ^0.14.3
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
@@ -48,21 +47,6 @@ flutter_native_splash:
   android_12:
     color: "#FCFCFD"
     color_dark: "#2d2b36"
-
-flutter_launcher_icons:
-  # Recompile icons with:
-  #   dart run flutter_launcher_icons
-
-  #  - Icons Settings -
-  # image_path: "assets/logo/logo.png"
-  ios: true
-  image_path_ios: "assets/logo/logo_ios.png"
-  remove_alpha_ios: true
-
-  android: true
-  image_path_android: "assets/logo/logo.png"
-  adaptive_icon_foreground: "assets/logo/logo_foreground.png"
-  adaptive_icon_background: "assets/logo/logo_back.png"
 
 flutter:
   uses-material-design: true
