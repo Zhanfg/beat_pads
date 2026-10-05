@@ -1,16 +1,16 @@
 import 'package:beat_pads/services/services.dart';
 
 enum PlayMode {
-  noSlide('Disabled'),
-  slide('Trigger Notes'),
+  noSlide('关闭滑奏'),
+  slide('滑动触发音符'),
 
   channelMod(
-    'Channel Aftertouch',
+    '通道触后',
     modulationOverlay: true,
   ),
 
   polyAT(
-    'Poly Aftertouch',
+    '复音触后',
     modulationOverlay: true,
   ),
 
@@ -22,7 +22,7 @@ enum PlayMode {
   ),
 
   mpeTargetPb(
-    'MPE - Push Style',
+    'MPE · Push 风格',
     oneDimensional: false,
     singleChannel: false,
   );
