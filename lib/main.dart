@@ -3,10 +3,6 @@ import 'package:beat_pads/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final sharedPrefProvider = Provider<Prefs>((ref) {
-  throw UnimplementedError();
-});
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
