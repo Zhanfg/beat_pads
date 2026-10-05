@@ -1399,10 +1399,6 @@ class _FretboardView extends StatefulWidget {
     required this.frets,
     required this.velocity,
     required this.touchDynamics,
-    required this.swipeMode,
-    required this.onScrollNotes,
-    required this.onPitchGesture,
-    required this.onPitchGestureEnd,
     required this.onNoteOn,
     required this.onNoteOff,
   });
@@ -1413,10 +1409,6 @@ class _FretboardView extends StatefulWidget {
   final int frets;
   final int velocity;
   final bool touchDynamics;
-  final _KeyboardSwipeMode swipeMode;
-  final ValueChanged<int> onScrollNotes;
-  final ValueChanged<double> onPitchGesture;
-  final VoidCallback onPitchGestureEnd;
   final PointerNoteOn onNoteOn;
   final PointerNoteOff onNoteOff;
 
@@ -3667,6 +3659,10 @@ class _PianoKeyboard extends StatefulWidget {
     required this.scaleRoot,
     required this.scaleLock,
     required this.touchDynamics,
+    required this.swipeMode,
+    required this.onScrollNotes,
+    required this.onPitchGesture,
+    required this.onPitchGestureEnd,
     required this.onNoteOn,
     required this.onNoteOff,
   });
@@ -3678,6 +3674,10 @@ class _PianoKeyboard extends StatefulWidget {
   final int scaleRoot;
   final bool scaleLock;
   final bool touchDynamics;
+  final _KeyboardSwipeMode swipeMode;
+  final ValueChanged<int> onScrollNotes;
+  final ValueChanged<double> onPitchGesture;
+  final VoidCallback onPitchGestureEnd;
   final PointerNoteOn onNoteOn;
   final PointerNoteOff onNoteOff;
 
@@ -3795,7 +3795,7 @@ class _PianoKeyboardState extends State<_PianoKeyboard> {
       final threshold = math.max(14.0, whiteWidth * 0.72);
       if (accumulated.abs() >= threshold) {
         final steps = (accumulated / threshold).truncate();
-        widget.onScrollNotes(-steps);
+        widget.onScrollNotes((-steps).toInt());
         _scrollRemainder[event.pointer] =
             accumulated - steps * threshold;
       } else {
