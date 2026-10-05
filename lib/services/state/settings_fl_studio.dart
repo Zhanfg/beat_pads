@@ -2,11 +2,17 @@ import 'package:beat_pads/services/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum FlScale {
-  chromatic('Chromatic', <int>[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-  major('Major', <int>[0, 2, 4, 5, 7, 9, 11]),
-  naturalMinor('Minor', <int>[0, 2, 3, 5, 7, 8, 10]),
-  dorian('Dorian', <int>[0, 2, 3, 5, 7, 9, 10]),
-  minorPentatonic('Minor Pent.', <int>[0, 3, 5, 7, 10]);
+  chromatic('半音阶', <int>[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+  major('大调', <int>[0, 2, 4, 5, 7, 9, 11]),
+  naturalMinor('自然小调', <int>[0, 2, 3, 5, 7, 8, 10]),
+  harmonicMinor('和声小调', <int>[0, 2, 3, 5, 7, 8, 11]),
+  melodicMinor('旋律小调', <int>[0, 2, 3, 5, 7, 9, 11]),
+  dorian('多利亚', <int>[0, 2, 3, 5, 7, 9, 10]),
+  mixolydian('混合利底亚', <int>[0, 2, 4, 5, 7, 9, 10]),
+  phrygian('弗里吉亚', <int>[0, 1, 3, 5, 7, 8, 10]),
+  majorPentatonic('大调五声音阶', <int>[0, 2, 4, 7, 9]),
+  minorPentatonic('小调五声音阶', <int>[0, 3, 5, 7, 10]),
+  blues('布鲁斯', <int>[0, 3, 5, 6, 7, 10]);
 
   const FlScale(this.label, this.intervals);
 
@@ -51,6 +57,16 @@ final flTouchDynamicsProvider = NotifierProvider<SettingBoolNotifier, bool>(() {
   return SettingBoolNotifier(
     key: 'fl_touch_dynamics',
     defaultValue: true,
+    usesPresets: false,
+  );
+});
+
+final flTempoProvider = NotifierProvider<SettingIntNotifier, int>(() {
+  return SettingIntNotifier(
+    key: 'fl_tempo',
+    defaultValue: 120,
+    min: 40,
+    max: 240,
     usesPresets: false,
   );
 });
