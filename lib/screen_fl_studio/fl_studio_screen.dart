@@ -3028,10 +3028,10 @@ class _FpcGrid extends StatelessWidget {
   final ValueChanged<int> onNoteOff;
 
   static const List<String> _labels = [
-    'KICK', 'SNARE', 'CLAP', 'HAT C',
-    'HAT O', 'TOM L', 'TOM M', 'TOM H',
-    'CRASH', 'RIDE', 'PERC 1', 'PERC 2',
-    'PAD 13', 'PAD 14', 'PAD 15', 'PAD 16',
+    '底鼓', '军鼓', '拍手', '闭镲',
+    '开镲', '低嗵', '中嗵', '高嗵',
+    '碎音镲', '叮叮镲', '打击 1', '打击 2',
+    '鼓垫 13', '鼓垫 14', '鼓垫 15', '鼓垫 16',
   ];
 
   @override
