@@ -18,19 +18,19 @@ import 'package:beat_pads/services/services.dart';
 
 // for dropdown menu
 enum MPEmods {
-  pitchbend('Pitch Bend Up & Down', Dims.two, Group.pitch),
-  pitchbendUp('Pitch Bend Up', Dims.one, Group.pitch),
-  pitchbendDown('Pitch Bend Down', Dims.one, Group.pitch),
-  mpeAftertouch('AT Pressure', Dims.one, Group.at),
-  mpeAftertouch64('AT Pressure Center 64', Dims.two, Group.at),
+  pitchbend('双向弯音', Dims.two, Group.pitch),
+  pitchbendUp('向上弯音', Dims.one, Group.pitch),
+  pitchbendDown('向下弯音', Dims.one, Group.pitch),
+  mpeAftertouch('触后压力', Dims.one, Group.at),
+  mpeAftertouch64('触后压力 · 中心 64', Dims.two, Group.at),
   slide('Slide [74]', Dims.one, Group.slide),
-  slide64('Slide [74] Center 64', Dims.two, Group.slide),
-  pan('Pan [10]', Dims.one, Group.pan),
-  pan64('Pan [10] Center 64', Dims.two, Group.pan),
-  gain('Gain [7]', Dims.one, Group.gain),
-  gain64('Gain [7] Center 64', Dims.two, Group.gain),
+  slide64('Slide [74] · 中心 64', Dims.two, Group.slide),
+  pan('声像 [10]', Dims.one, Group.pan),
+  pan64('声像 [10] · 中心 64', Dims.two, Group.pan),
+  gain('增益 [7]', Dims.one, Group.gain),
+  gain64('增益 [7] · 中心 64', Dims.two, Group.gain),
 
-  none('None', Dims.one, Group.none);
+  none('无', Dims.one, Group.none);
 
   const MPEmods(this.title, this.dimensions, this.exclusiveGroup);
   @override
