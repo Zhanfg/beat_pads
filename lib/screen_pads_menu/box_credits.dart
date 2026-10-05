@@ -25,14 +25,14 @@ class CreditsBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WidgetsInfoBox(
-      header: 'Links',
+      header: '链接',
       body: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Wrap(
               children: [
-                Text('Get the Source, contribute and report issues:'),
+                Text('查看源码、参与贡献或提交问题：'),
               ],
             ),
             TextButton(
@@ -50,7 +50,7 @@ class CreditsBox extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Wrap(children: [Text('My website:')]),
+            const Wrap(children: [Text('我的网站：')]),
             TextButton(
               child: const Text(
                 'Anzio.dev',
@@ -66,7 +66,7 @@ class CreditsBox extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Wrap(children: [Text('Magic Tone Network & XpressPads:')]),
+            const Wrap(children: [Text('Magic Tone Network 与 XpressPads：')]),
             TextButton(
               child: const Text(
                 'XpressPads.com',
@@ -82,7 +82,7 @@ class CreditsBox extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Wrap(children: [Text("Dog Logo by 'catalyststuff' from:")]),
+            const Wrap(children: [Text('Dog Logo 素材来源：')]),
             TextButton(
               child: const Text(
                 'FreePik.com',
@@ -98,7 +98,7 @@ class CreditsBox extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Wrap(children: [Text('Splash Screen animated with Rive:')]),
+            const Wrap(children: [Text('启动动画使用 Rive：')]),
             TextButton(
               child: const Text(
                 'Rive.app',
@@ -115,7 +115,7 @@ class CreditsBox extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Wrap(
-              children: [Text('Contact me:')],
+              children: [Text('联系作者：')],
             ),
             TextButton(
               child: const Text(
