@@ -2,6 +2,52 @@
 
 当前分支已经从原 Midi Poly Grid 的旧 Grid/MPE UI 重构为独立的移动乐器工作台。主运行链只保留实际在产品里使用的本地音频、MIDI 设备、触控输入、持久设置与 AXYP 协议模块。
 
+## 1.8.0 多轨工作站闭环（开发基线）
+
+> **版本语义：** 1.8.0 只是当前开发阶段编号，不代表“第一版完成”。只有在实际功能和真机体验获得项目所有者认可后，首个认可版本才会重新命名为 **0.9.0**。
+
+1.8.0 的目标不是继续给演奏页堆功能，而是建立一个可以独立完成“创作 → 录制 → 编辑 → 编排 → 基础混音 → 回放 → 保存 → 下次继续”的移动工作站闭环。
+
+### 工程与多轨
+- 新增不可变 Project → Track → Clip → Note 数据模型，并提供版本化 JSON 序列化。
+- Session 从单 Clip 升级为真正的多轨工程；支持添加、选择、重命名、删除轨道。
+- 每条轨道记录 instrumentId、Mute、Solo、真实回放音量及多个 Clip。
+- 工程 BPM 与全局 BPM 保持同步，恢复工程后会同步到工作站。
+- 新增工程库：新建、命名、保存、载入、删除多个本地工程。
+- 当前工程自动保存；重启后恢复 Project/Track/Clip/Note 图，而不是只恢复设置。
+
+### 编排与 Clip
+- 轨道页提供 **编排 / 钢琴卷帘** 两种真实编辑模式。
+- 编排页按 startMicros 在多轨时间线上定位实际 Clip，并可选中 Clip。
+- 支持 Clip 按节拍左右移动、复制、删除和循环。
+- 循环不再只是 UI 标记：播放调度器会按 Clip 长度真实重复调度音符。
+- 多轨播放遵循 Mute/Solo，并将轨道音量实际作用于回放力度。
+
+### 钢琴卷帘与编辑
+- 新增 CustomPainter 钢琴卷帘；使用单画布而不是成百上千 Widget，降低复杂工程的布局开销。
+- 支持缩放与平移；点击网格写入音符，再次点击对应音符删除。
+- 支持 1/16 量化、±1/±12 半音移调、力度 ±10。
+- 底层已支持单 Note 的音高、位置、时值与力度更新，为拖动/拉伸编辑继续扩展。
+- 新增最多 32 个工程快照的 Undo / Redo。
+
+### AXYP 多轨并发修复
+- AXYP pointerId 正式承担 voice ownership。
+- MultiTouchNoteRouter 在多个手指共同持有同音高时保留原始 voice id，最后一个 owner 离开后才关闭对应 voice。
+- 本地 Synth 从“按 MIDI note 管理声音”改为“按 (voiceId, note) 管理声音”。
+- 多轨、循环和多指同时弹同一个音高时，一个 NoteOff 不再误关其他仍在播放的同音 voice。
+- 工程回放为每个已调度音符分配独立 voice id，并完整经过 AXYP → Local Audio/MIDI 路由。
+
+### Mixer 与真实性原则
+- Mixer 现在按真实 Track 显示 Mute、Solo、Volume；这些参数实际参与 Project Playback。
+- 暂时删除尚未接入 per-track audio bus 的“声像”控件。未真正作用于声音的参数不作为已完成功能展示。
+
+### 自动验证
+- 覆盖多轨 Project Graph、Undo/Redo、量化/移调/力度编辑。
+- 覆盖 SharedPreferences 自动保存与重启恢复。
+- 覆盖多工程库保存/载入/删除。
+- 覆盖共享音高下稳定 AXYP voice ownership。
+
+1.8.0 仍不等于完整 GarageBand / FL Studio Mobile，也不等于项目的 0.9.0 首版。Sampler/SF2/SFZ、音频录音、Track FX/Bus、Automation、Clip Split/Trim、离线导出等仍属于后续 1.8.x 开发范围，直到产品所有者明确认可第一版。
 ## 1.7.0 工作站结构与横屏演奏模型
 
 - 横屏键盘新增 **滑奏 / 滚动 / 弯音** 三种触控语义。滚动模式可直接在琴键表面横向移动声域，弯音模式保留按键并按水平位移发送 Pitch Bend。
