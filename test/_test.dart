@@ -252,6 +252,47 @@ void main() {
       session.dispose();
     });
 
+    test('splits and trims clips without corrupting crossing notes', () {
+      final session = StudioSession();
+      session.addTrack(instrumentId: 'keyboard');
+      session.addNoteToSelectedClip(
+        note: 60,
+        startMicros: 0,
+        durationMicros: 300000,
+        velocity: 100,
+      );
+      session.addNoteToSelectedClip(
+        note: 64,
+        startMicros: 200000,
+        durationMicros: 200000,
+        velocity: 100,
+      );
+
+      final sourceLength = session.selectedClip!.lengthMicros;
+      expect(sourceLength, 400000);
+
+      session.splitSelectedClipAt(250000);
+      expect(session.selectedTrack!.clips, hasLength(2));
+
+      final left = session.selectedTrack!.clips.first;
+      final right = session.selectedTrack!.clips.last;
+      expect(left.lengthMicros, 250000);
+      expect(right.startMicros, 250000);
+      expect(left.notes, hasLength(2));
+      expect(right.notes, hasLength(2));
+      expect(left.notes.first.durationMicros, 250000);
+      expect(right.notes.first.startMicros, 0);
+
+      session.selectClip(right.id);
+      session.trimSelectedClipStart(50000);
+      expect(session.selectedClip!.startMicros, 300000);
+      expect(session.selectedClip!.lengthMicros, 100000);
+
+      session.trimSelectedClipEnd(25000);
+      expect(session.selectedClip!.lengthMicros, 75000);
+      session.dispose();
+    });
+
     test('quantize transpose and velocity edit mutate actual notes', () {
       final session = StudioSession();
       session.addTrack(instrumentId: 'keyboard');
