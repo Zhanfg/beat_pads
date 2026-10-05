@@ -57,7 +57,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   _StudioWorkspace _workspace = _StudioWorkspace.instrument;
   _TouchInstrument _instrument = _TouchInstrument.keyboard;
-  final StudioSession _session = StudioSession();
+  late final StudioSession _session;
   int _keyboardBaseNote = 48;
   _KeyboardSwipeMode _keyboardSwipeMode = _KeyboardSwipeMode.glissando;
   int _fpcBaseNote = 36;
@@ -74,6 +74,9 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   @override
   void initState() {
     super.initState();
+    _session = StudioSession(
+      storage: ref.read(sharedPrefProvider).sharedPrefs,
+    );
     _session.addListener(_onSessionChanged);
     _performance = PerformanceRouter(
       channel: () => ref.read(channelUsableProv),
@@ -150,22 +153,27 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     if (_session.recording) {
       _session.stopRecording();
     } else {
-      _session.startRecording();
+      _session.setTempo(ref.read(flTempoProvider));
+      _session.startRecording(instrumentId: _instrument.name);
       setState(() => _workspace = _StudioWorkspace.instrument);
     }
     await _sendMomentaryCc(110);
   }
 
   Future<void> _playSession() async {
-    if (!_session.clip.isEmpty) {
-      _session.play(
-        noteOn: (note, velocity) => _performance.noteOn(
+    _session.playProject(
+      noteOn: (track, note, velocity) {
+        final percussive = track.instrumentId == 'drums' ||
+            track.instrumentId == 'smartDrums' ||
+            track.instrumentId == 'beatSequencer';
+        _performance.noteOn(
           note,
           velocity: velocity,
-        ),
-        noteOff: (note) => _performance.noteOff(note),
-      );
-    }
+          percussive: percussive,
+        );
+      },
+      noteOff: (_, note) => _performance.noteOff(note),
+    );
     await _sendMomentaryCc(111);
   }
 
@@ -410,6 +418,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
           );
         case _StudioWorkspace.mixer:
           return _MixerWorkspace(
+            session: _session,
             controls: controls,
             localAudioEnabled: localAudioEnabled,
             localAudioVolume: localAudioVolume,
@@ -424,6 +433,10 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                 _instrument = instrument;
                 _workspace = _StudioWorkspace.instrument;
               });
+              final track = _session.selectedTrack;
+              if (track != null) {
+                _session.setTrackInstrument(track.id, instrument.name);
+              }
             },
           );
       }
