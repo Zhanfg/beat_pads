@@ -46,8 +46,17 @@ abstract class DeviceUtils {
   }
 
   /// Hide Top and Bottom Menu Bars
-  static Future<void> hideSystemUi() {
-    return SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  static Future<void> hideSystemUi() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
   }
 
   // /// Show Top and Bottom Menu Bars
