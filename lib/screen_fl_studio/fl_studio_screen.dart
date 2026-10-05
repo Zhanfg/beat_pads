@@ -137,7 +137,6 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
       onPitchEnd: _resetPitch,
       onModChanged: _setMod,
       onSustainChanged: _setSustain,
-      onTransportCc: _sendMomentaryCc,
       onCc: _sendCc,
       onPanic: _panic,
     );
@@ -940,116 +939,6 @@ class _ChordPadState extends State<_ChordPad> {
 }
 
 
-class _PerformanceArea extends StatelessWidget {
-  const _PerformanceArea({
-    required this.keyboardBaseNote,
-    required this.fpcBaseNote,
-    required this.velocity,
-    required this.scale,
-    required this.scaleRoot,
-    required this.scaleLock,
-    required this.touchDynamics,
-    required this.onNoteOn,
-    required this.onNoteOff,
-    required this.onOctaveDown,
-    required this.onOctaveUp,
-    required this.onFpcBankDown,
-    required this.onFpcBankUp,
-  });
-
-  final int keyboardBaseNote;
-  final int fpcBaseNote;
-  final int velocity;
-  final FlScale scale;
-  final int scaleRoot;
-  final bool scaleLock;
-  final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
-  final VoidCallback onOctaveDown;
-  final VoidCallback onOctaveUp;
-  final VoidCallback onFpcBankDown;
-  final VoidCallback onFpcBankUp;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Text('KEYS', style: Theme.of(context).textTheme.labelLarge),
-              const Spacer(),
-              IconButton(
-                tooltip: 'Octave down',
-                onPressed: onOctaveDown,
-                icon: const Icon(Icons.remove),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                child: Text(MidiUtils.getNoteName(keyboardBaseNote)),
-              ),
-              IconButton(
-                tooltip: 'Octave up',
-                onPressed: onOctaveUp,
-                icon: const Icon(Icons.add),
-              ),
-            ],
-          ),
-          SizedBox(
-            height: 178,
-            child: _ChromaticKeyboard(
-              baseNote: keyboardBaseNote,
-              noteCount: 25,
-              velocity: velocity,
-              scale: scale,
-              scaleRoot: scaleRoot,
-              scaleLock: scaleLock,
-              touchDynamics: touchDynamics,
-              onNoteOn: onNoteOn,
-              onNoteOff: onNoteOff,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Text('FPC / DRUM PADS', style: Theme.of(context).textTheme.labelLarge),
-              const Spacer(),
-              IconButton(
-                tooltip: 'Previous bank',
-                onPressed: onFpcBankDown,
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Text('$fpcBaseNote–${fpcBaseNote + 15}'),
-              IconButton(
-                tooltip: 'Next bank',
-                onPressed: onFpcBankUp,
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
-          ),
-          Expanded(
-            child: _FpcGrid(
-              baseNote: fpcBaseNote,
-              velocity: velocity,
-              touchDynamics: touchDynamics,
-              onNoteOn: onNoteOn,
-              onNoteOff: onNoteOff,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ControlArea extends ConsumerWidget {
   const _ControlArea({
     required this.pitch,
@@ -1061,7 +950,6 @@ class _ControlArea extends ConsumerWidget {
     required this.onPitchEnd,
     required this.onModChanged,
     required this.onSustainChanged,
-    required this.onTransportCc,
     required this.onCc,
     required this.onPanic,
   });
@@ -1075,7 +963,6 @@ class _ControlArea extends ConsumerWidget {
   final VoidCallback onPitchEnd;
   final ValueChanged<double> onModChanged;
   final ValueChanged<bool> onSustainChanged;
-  final Future<void> Function(int controller) onTransportCc;
   final void Function(int controller, int value) onCc;
   final VoidCallback onPanic;
 
@@ -1107,7 +994,6 @@ class _ControlArea extends ConsumerWidget {
           title: 'REMIX FX',
           subtitle: 'Two-axis continuous control. Defaults: X=CC74, Y=CC71.',
           child: _XyControlPad(
-            channel: channel,
             onCc: onCc,
           ),
         ),
@@ -1116,7 +1002,6 @@ class _ControlArea extends ConsumerWidget {
           title: 'PLUG-IN CONTROLS',
           subtitle: 'Four assignable CC macros for FL Studio Link to controller.',
           child: _MacroDeck(
-            channel: channel,
             onCc: onCc,
           ),
         ),
@@ -1380,11 +1265,9 @@ Future<void> _showCcEditor(
 
 class _XyControlPad extends ConsumerStatefulWidget {
   const _XyControlPad({
-    required this.channel,
     required this.onCc,
   });
 
-  final int channel;
   final void Function(int controller, int value) onCc;
 
   @override
@@ -1565,11 +1448,9 @@ class _CcBadge extends StatelessWidget {
 
 class _MacroDeck extends ConsumerWidget {
   const _MacroDeck({
-    required this.channel,
     required this.onCc,
   });
 
-  final int channel;
   final void Function(int controller, int value) onCc;
 
   @override
@@ -1919,160 +1800,6 @@ class _PianoKeyState extends State<_PianoKey> {
   }
 }
 
-class _ChromaticKeyboard extends StatelessWidget {
-  const _ChromaticKeyboard({
-    required this.baseNote,
-    required this.noteCount,
-    required this.velocity,
-    required this.scale,
-    required this.scaleRoot,
-    required this.scaleLock,
-    required this.touchDynamics,
-    required this.onNoteOn,
-    required this.onNoteOff,
-  });
-
-  final int baseNote;
-  final int noteCount;
-  final int velocity;
-  final FlScale scale;
-  final int scaleRoot;
-  final bool scaleLock;
-  final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
-
-  static const Set<int> _black = {1, 3, 6, 8, 10};
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: noteCount,
-      separatorBuilder: (_, __) => const SizedBox(width: 2),
-      itemBuilder: (context, index) {
-        final note = (baseNote + index).clamp(0, 127).toInt();
-        final black = _black.contains(note % 12);
-        final inScale = scale.containsNote(note, scaleRoot);
-        final enabled = !scaleLock || inScale;
-        return SizedBox(
-          width: black ? 42 : 52,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: black ? 42 : 0),
-            child: _MidiKey(
-              note: note,
-              velocity: velocity,
-              dark: black,
-              enabled: enabled,
-              inScale: inScale,
-              touchDynamics: touchDynamics,
-              onNoteOn: onNoteOn,
-              onNoteOff: onNoteOff,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _MidiKey extends StatefulWidget {
-  const _MidiKey({
-    required this.note,
-    required this.velocity,
-    required this.dark,
-    required this.enabled,
-    required this.inScale,
-    required this.touchDynamics,
-    required this.onNoteOn,
-    required this.onNoteOff,
-  });
-
-  final int note;
-  final int velocity;
-  final bool dark;
-  final bool enabled;
-  final bool inScale;
-  final bool touchDynamics;
-  final void Function(int note, {int? velocity}) onNoteOn;
-  final ValueChanged<int> onNoteOff;
-
-  @override
-  State<_MidiKey> createState() => _MidiKeyState();
-}
-
-class _MidiKeyState extends State<_MidiKey> {
-  final Set<int> _pointers = <int>{};
-
-  bool get _active => _pointers.isNotEmpty;
-
-  void _down(PointerDownEvent event) {
-    if (!widget.enabled) return;
-    final wasInactive = _pointers.isEmpty;
-    _pointers.add(event.pointer);
-    if (wasInactive) {
-      widget.onNoteOn(
-        widget.note,
-        velocity: _velocityFromTouch(
-          event,
-          widget.velocity,
-          widget.touchDynamics,
-        ),
-      );
-    }
-    setState(() {});
-  }
-
-  void _release(int pointer) {
-    _pointers.remove(pointer);
-    if (_pointers.isEmpty) widget.onNoteOff(widget.note);
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final base = widget.dark ? scheme.inverseSurface : scheme.surfaceContainerHighest;
-    final active = scheme.primaryContainer;
-    final disabled = scheme.surfaceContainerLow;
-    final scaleAccent = scheme.secondaryContainer;
-
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: _down,
-      onPointerUp: (event) => _release(event.pointer),
-      onPointerCancel: (event) => _release(event.pointer),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 45),
-        decoration: BoxDecoration(
-          color: !widget.enabled
-              ? disabled
-              : _active
-                  ? active
-                  : widget.inScale
-                      ? scaleAccent
-                      : base,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: scheme.outlineVariant),
-        ),
-        alignment: Alignment.bottomCenter,
-        padding: const EdgeInsets.only(bottom: 9),
-        child: Text(
-          MidiUtils.getNoteName(widget.note),
-          style: TextStyle(
-            fontSize: 11,
-            color: !widget.enabled
-                ? scheme.onSurface.withValues(alpha: 0.32)
-                : widget.dark && !_active && !widget.inScale
-                    ? scheme.onInverseSurface
-                    : scheme.onSurface,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _FpcGrid extends StatelessWidget {
   const _FpcGrid({
     required this.baseNote,
@@ -2209,34 +1936,6 @@ class _DrumPadState extends State<_DrumPad> {
   }
 }
 
-class _ConnectionPill extends StatelessWidget {
-  const _ConnectionPill({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final connected = count > 0;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: connected ? scheme.primaryContainer : scheme.errorContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      alignment: Alignment.center,
-      child: Row(
-        children: [
-          Icon(connected ? Icons.usb : Icons.usb_off, size: 16),
-          const SizedBox(width: 5),
-          Text(connected ? '$count MIDI' : 'NO MIDI'),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
@@ -2302,39 +2001,6 @@ class _Metric extends StatelessWidget {
           const SizedBox(height: 3),
           Text(value, style: Theme.of(context).textTheme.titleMedium),
         ],
-      ),
-    );
-  }
-}
-
-class _TransportButton extends StatelessWidget {
-  const _TransportButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 78,
-      child: FilledButton.tonal(
-        style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        ),
-        onPressed: onPressed,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(height: 3),
-            Text(label, style: const TextStyle(fontSize: 11)),
-          ],
-        ),
       ),
     );
   }
