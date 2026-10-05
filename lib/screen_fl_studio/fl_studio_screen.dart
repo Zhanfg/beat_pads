@@ -474,27 +474,59 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                       onControls: showControls,
                       onPanic: _panic,
                     ),
-                    const _MeasureRuler(),
+                    if (_workspace == _StudioWorkspace.tracks)
+                      const _MeasureRuler(),
                     Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        child: KeyedSubtree(
-                          key: ValueKey(
-                            '${_workspace.name}:${_instrument.name}',
-                          ),
-                          child: workspaceView(),
-                        ),
+                      child: landscape
+                          ? Row(
+                              children: [
+                                _WorkspaceRail(
+                                  selected: _workspace,
+                                  recording: _session.recording,
+                                  onSelected: (workspace) {
+                                    setState(() => _workspace = workspace);
+                                  },
+                                ),
+                                const VerticalDivider(
+                                  width: 1,
+                                  color: Colors.white10,
+                                ),
+                                Expanded(
+                                  child: AnimatedSwitcher(
+                                    duration:
+                                        const Duration(milliseconds: 180),
+                                    switchInCurve: Curves.easeOut,
+                                    switchOutCurve: Curves.easeIn,
+                                    child: KeyedSubtree(
+                                      key: ValueKey(
+                                        '${_workspace.name}:${_instrument.name}',
+                                      ),
+                                      child: workspaceView(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: KeyedSubtree(
+                                key: ValueKey(
+                                  '${_workspace.name}:${_instrument.name}',
+                                ),
+                                child: workspaceView(),
+                              ),
+                            ),
+                    ),
+                    if (!landscape)
+                      _WorkspaceNavigation(
+                        selected: _workspace,
+                        recording: _session.recording,
+                        onSelected: (workspace) {
+                          setState(() => _workspace = workspace);
+                        },
                       ),
-                    ),
-                    _WorkspaceNavigation(
-                      selected: _workspace,
-                      recording: _session.recording,
-                      onSelected: (workspace) {
-                        setState(() => _workspace = workspace);
-                      },
-                    ),
                     _InstrumentStatusBar(
                       channel: channel,
                       velocity: velocity,
@@ -514,6 +546,72 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   }
 }
 
+
+class _WorkspaceRail extends StatelessWidget {
+  const _WorkspaceRail({
+    required this.selected,
+    required this.recording,
+    required this.onSelected,
+  });
+
+  final _StudioWorkspace selected;
+  final bool recording;
+  final ValueChanged<_StudioWorkspace> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 58,
+      child: ColoredBox(
+        color: const Color(0xFF181818),
+        child: Column(
+          children: [
+            const SizedBox(height: 6),
+            for (final workspace in _StudioWorkspace.values)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 4,
+                  horizontal: 5,
+                ),
+                child: Tooltip(
+                  message: workspace.label,
+                  child: IconButton(
+                    onPressed: () => onSelected(workspace),
+                    style: IconButton.styleFrom(
+                      backgroundColor: selected == workspace
+                          ? scheme.primaryContainer.withValues(alpha: 0.58)
+                          : Colors.transparent,
+                      foregroundColor: selected == workspace
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                    ),
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(workspace.icon, size: 21),
+                        if (workspace == _StudioWorkspace.tracks &&
+                            recording)
+                          const Positioned(
+                            right: -5,
+                            top: -4,
+                            child: CircleAvatar(
+                              radius: 3,
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _WorkspaceNavigation extends StatelessWidget {
   const _WorkspaceNavigation({
