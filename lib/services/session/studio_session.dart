@@ -30,6 +30,7 @@ final class StudioSession extends ChangeNotifier {
   }
 
   static const String _storageKey = 'axyp-workstation-project-v1';
+  static const String _libraryKey = 'axyp-workstation-library-v1';
   static const StudioClip _emptyClip = StudioClip(
     id: 'empty',
     name: '空片段',
@@ -43,6 +44,7 @@ final class StudioSession extends ChangeNotifier {
   final List<Timer> _playbackTimers = <Timer>[];
   final List<String> _undo = <String>[];
   final List<String> _redo = <String>[];
+  final Map<String, String> _library = <String, String>{};
 
   StudioProject _project = StudioProject.empty();
   String? _selectedTrackId;
@@ -52,6 +54,7 @@ final class StudioSession extends ChangeNotifier {
   int _recordStartMicros = 0;
   int _idCounter = 0;
   Timer? _saveDebounce;
+  String? _activeLibraryName;
 
   StudioProject get project => _project;
   bool get recording => _recording;
@@ -60,6 +63,8 @@ final class StudioSession extends ChangeNotifier {
   bool get canRedo => _redo.isNotEmpty;
   String? get selectedTrackId => _selectedTrackId;
   String? get selectedClipId => _selectedClipId;
+  String? get activeLibraryName => _activeLibraryName;
+  List<String> get savedProjectNames => _library.keys.toList()..sort();
 
   StudioTrack? get selectedTrack {
     final id = _selectedTrackId;
@@ -91,12 +96,63 @@ final class StudioSession extends ChangeNotifier {
     _snapshot();
     stopPlayback();
     _project = StudioProject.empty(name: name, tempo: tempo);
+    _activeLibraryName = null;
     _selectedTrackId = null;
     _selectedClipId = null;
     _recording = false;
     _pending.clear();
     _recordingNotes.clear();
     _commit();
+  }
+
+  void renameProject(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed == _project.name) return;
+    _snapshot();
+    final oldLibraryName = _activeLibraryName;
+    _project = _project.copyWith(name: trimmed);
+    if (oldLibraryName != null) {
+      _library.remove(oldLibraryName);
+      _activeLibraryName = trimmed;
+      _library[trimmed] = _encodeState();
+      _saveLibrary();
+    }
+    _commit();
+  }
+
+  void saveProjectAs(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    if (_project.name != trimmed) {
+      _project = _project.copyWith(name: trimmed);
+    }
+    _activeLibraryName = trimmed;
+    _library[trimmed] = _encodeState();
+    _saveLibrary();
+    _commit();
+  }
+
+  bool loadProject(String name) {
+    final raw = _library[name];
+    if (raw == null) return false;
+    stopPlayback();
+    try {
+      _restoreState(raw);
+      _activeLibraryName = name;
+      _undo.clear();
+      _redo.clear();
+      _commit();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  void deleteSavedProject(String name) {
+    if (_library.remove(name) == null) return;
+    if (_activeLibraryName == name) _activeLibraryName = null;
+    _saveLibrary();
+    notifyListeners();
   }
 
   String addTrack({
@@ -177,14 +233,6 @@ final class StudioSession extends ChangeNotifier {
     _editTrack(
       trackId,
       (track) => track.copyWith(volume: volume.clamp(0.0, 1.5)),
-      snapshot: false,
-    );
-  }
-
-  void setTrackPan(String trackId, double pan) {
-    _editTrack(
-      trackId,
-      (track) => track.copyWith(pan: pan.clamp(-1.0, 1.0)),
       snapshot: false,
     );
   }
@@ -495,38 +543,54 @@ final class StudioSession extends ChangeNotifier {
     final activeTracks = _project.tracks.where(
       (track) => !track.muted && (!soloing || track.solo),
     );
-    int length = 0;
+    final beatMicros = (60000000 / _project.tempo).round();
+    final minimumSongLength = beatMicros * 16;
+    final songLength = math.max(projectLengthMicros, minimumSongLength);
+    int scheduledEvents = 0;
 
     for (final track in activeTracks) {
       for (final clip in track.clips) {
-        length = math.max(length, clip.endMicros);
-        for (final note in clip.notes) {
-          final velocity =
-              (note.velocity * track.volume).round().clamp(1, 127).toInt();
-          final onAt = clip.startMicros + note.startMicros;
-          final offAt = clip.startMicros + note.endMicros;
-          _playbackTimers.add(
-            Timer(
-              Duration(microseconds: onAt),
-              () => noteOn(track, note.note, velocity),
-            ),
-          );
-          _playbackTimers.add(
-            Timer(
-              Duration(microseconds: offAt),
-              () => noteOff(track, note.note),
-            ),
-          );
+        if (clip.isEmpty) continue;
+        final repeatLength = math.max(1000, clip.lengthMicros);
+        int iterationStart = clip.startMicros;
+        int iterations = 0;
+
+        while (iterationStart < songLength && iterations < 256) {
+          for (final note in clip.notes) {
+            final onAt = iterationStart + note.startMicros;
+            if (onAt >= songLength) continue;
+            final offAt = iterationStart + note.endMicros;
+            final velocity =
+                (note.velocity * track.volume).round().clamp(1, 127).toInt();
+
+            _playbackTimers.add(
+              Timer(
+                Duration(microseconds: onAt),
+                () => noteOn(track, note.note, velocity),
+              ),
+            );
+            _playbackTimers.add(
+              Timer(
+                Duration(microseconds: offAt),
+                () => noteOff(track, note.note),
+              ),
+            );
+            scheduledEvents += 2;
+          }
+
+          if (!clip.loop) break;
+          iterationStart += repeatLength;
+          iterations++;
         }
       }
     }
 
-    if (_playbackTimers.isEmpty) return;
+    if (scheduledEvents == 0) return;
     _playing = true;
     notifyListeners();
     _playbackTimers.add(
       Timer(
-        Duration(microseconds: length + 2000),
+        Duration(microseconds: songLength + 2000),
         () {
           _playing = false;
           _playbackTimers.clear();
@@ -625,10 +689,27 @@ final class StudioSession extends ChangeNotifier {
   }
 
   void _restore() {
+    final libraryRaw = _storage?.getString(_libraryKey);
+    if (libraryRaw != null && libraryRaw.isNotEmpty) {
+      try {
+        final decoded = Map<String, Object?>.from(jsonDecode(libraryRaw) as Map);
+        for (final entry in decoded.entries) {
+          final value = entry.value;
+          if (value is String) _library[entry.key] = value;
+        }
+      } on Object {
+        _library.clear();
+      }
+    }
+
     final raw = _storage?.getString(_storageKey);
     if (raw == null || raw.isEmpty) return;
     try {
       _restoreState(raw);
+      final matchingName = _project.name;
+      if (_library.containsKey(matchingName)) {
+        _activeLibraryName = matchingName;
+      }
     } on Object {
       _project = StudioProject.empty();
       _selectedTrackId = null;
@@ -636,10 +717,20 @@ final class StudioSession extends ChangeNotifier {
     }
   }
 
+  void _saveLibrary() {
+    _storage?.setString(_libraryKey, jsonEncode(_library));
+  }
+
   void _commit() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 180), () {
-      _storage?.setString(_storageKey, _encodeState());
+      final encoded = _encodeState();
+      _storage?.setString(_storageKey, encoded);
+      final activeName = _activeLibraryName;
+      if (activeName != null) {
+        _library[activeName] = encoded;
+        _saveLibrary();
+      }
     });
     notifyListeners();
   }
