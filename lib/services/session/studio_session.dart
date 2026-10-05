@@ -527,14 +527,23 @@ final class StudioSession extends ChangeNotifier {
     required void Function(int note) noteOff,
   }) {
     playProject(
-      noteOn: (_, note, velocity) => noteOn(note, velocity),
-      noteOff: (_, note) => noteOff(note),
+      noteOn: (_, note, velocity, _) => noteOn(note, velocity),
+      noteOff: (_, note, _) => noteOff(note),
     );
   }
 
   void playProject({
-    required void Function(StudioTrack track, int note, int velocity) noteOn,
-    required void Function(StudioTrack track, int note) noteOff,
+    required void Function(
+      StudioTrack track,
+      int note,
+      int velocity,
+      int voiceId,
+    ) noteOn,
+    required void Function(
+      StudioTrack track,
+      int note,
+      int voiceId,
+    ) noteOff,
   }) {
     if (_project.tracks.every((track) => track.clips.isEmpty)) return;
 
@@ -547,6 +556,7 @@ final class StudioSession extends ChangeNotifier {
     final minimumSongLength = beatMicros * 16;
     final songLength = math.max(projectLengthMicros, minimumSongLength);
     int scheduledEvents = 0;
+    int nextVoiceId = -2;
 
     for (final track in activeTracks) {
       for (final clip in track.clips) {
@@ -562,17 +572,18 @@ final class StudioSession extends ChangeNotifier {
             final offAt = iterationStart + note.endMicros;
             final velocity =
                 (note.velocity * track.volume).round().clamp(1, 127).toInt();
+            final voiceId = nextVoiceId--;
 
             _playbackTimers.add(
               Timer(
                 Duration(microseconds: onAt),
-                () => noteOn(track, note.note, velocity),
+                () => noteOn(track, note.note, velocity, voiceId),
               ),
             );
             _playbackTimers.add(
               Timer(
                 Duration(microseconds: offAt),
-                () => noteOff(track, note.note),
+                () => noteOff(track, note.note, voiceId),
               ),
             );
             scheduledEvents += 2;
