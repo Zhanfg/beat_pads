@@ -2,13 +2,13 @@ import 'package:beat_pads/services/services.dart';
 import 'package:flutter/material.dart';
 
 enum PadColors {
-  colorWheel('Base Color on Root Note'),
-  fixedColorWheel('Base Color on C Note'),
-  circleOfFifth('Circle of Fifths'),
-  gmDrums('GM Percussion Type'),
-  pianoKeys('Piano Keys'),
-  highlightRoot('Highlight Root Note'),
-  neutral('Neutral');
+  colorWheel('根音使用基准色'),
+  fixedColorWheel('C 音使用基准色'),
+  circleOfFifth('五度圈'),
+  gmDrums('GM 打击乐类型'),
+  pianoKeys('钢琴黑白键'),
+  highlightRoot('突出根音'),
+  neutral('中性色');
 
   const PadColors(this.title);
 
