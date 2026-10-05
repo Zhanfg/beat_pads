@@ -16,12 +16,12 @@ class MenuSystem extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: ThemeConst.listViewBottomPadding),
       children: <Widget>[
-        const DividerTitle('System'),
+        const DividerTitle('系统'),
         const SwitchWakeLockTile(),
         ListTile(
-          title: const Text('Fader Tracks Touchable'),
+          title: const Text('滑杆轨道可直接触控'),
           subtitle: const Text(
-            'Allow Faders to be moved by touching anywhere on their track',
+            '点击滑杆轨道任意位置即可直接移动滑块',
           ),
           trailing: Switch(
             value: ref.watch(sliderTapAndSlideProv),
@@ -30,15 +30,15 @@ class MenuSystem extends ConsumerWidget {
           ),
         ),
         ListTile(
-          title: const Text('Show Splash Screen'),
-          subtitle: const Text('Show Doggo splash screen on app startup'),
+          title: const Text('显示启动画面'),
+          subtitle: const Text('应用启动时显示动画启动页'),
           trailing: Switch(
             value: ref.watch(splashScreenProv),
             onChanged: (bool v) =>
                 ref.read(splashScreenProv.notifier).setAndSave(v),
           ),
         ),
-        const DividerTitle('Reset'),
+        const DividerTitle('重置'),
         const SizedBox(height: 20),
         Center(
           child: ConstrainedBox(
@@ -46,8 +46,8 @@ class MenuSystem extends ConsumerWidget {
               minWidth: ThemeConst.menuButtonMinWidth,
             ),
             child: SnackMessageButton(
-              label: 'Reset Midi Buffers',
-              message: "Midi buffer cleared & 'Stop All Notes' sent",
+              label: '重置 MIDI 缓冲区',
+              message: 'MIDI 缓冲区已清空，并已发送“关闭全部音符”',
               onPressed: () {
                 ref.read(rxNoteProvider.notifier).reset();
                 MidiUtils.sendAllNotesOffMessage(ref.read(channelUsableProv));
@@ -65,19 +65,19 @@ class MenuSystem extends ConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Palette.lightPink,
               ),
-              child: const Text('Reset All Presets'),
+              child: const Text('重置全部预设'),
               onPressed: () {
                 showDialog<String>(
                   context: context,
                   builder: (BuildContext context) => AlertDialog(
-                    title: const Text('Reset'),
+                    title: const Text('重置'),
                     content: const Text(
-                      'Return All Presets to the default values?',
+                      '将全部预设恢复为默认值？',
                     ),
                     actions: <Widget>[
                       TextButton(
                         onPressed: () => Navigator.pop(context, 'Cancel'),
-                        child: const Text('Cancel'),
+                        child: const Text('取消'),
                       ),
                       TextButton(
                         onPressed: () {
@@ -86,7 +86,7 @@ class MenuSystem extends ConsumerWidget {
                           ref.read(selectedMenuState.notifier).state =
                               Menu.layout;
                         },
-                        child: const Text('OK'),
+                        child: const Text('确定'),
                       ),
                     ],
                   ),
@@ -99,11 +99,11 @@ class MenuSystem extends ConsumerWidget {
         const SizedBox(height: 20),
 
         const StringInfoBox(
-          header: 'Credits',
+          header: '致谢',
           body: [
-            'I want to thank these wonderful people for their extremely helpful feedback:',
+            '感谢以下用户提供的宝贵反馈：',
             'Samplix,  A. Samek,  Gavinski,  tyslothrop1,  tput73,  bruques',
-            'Thanks also to anyone I may have forgotten to mention!',
+            '也感谢所有未能逐一列出的贡献者！',
           ],
         ),
         const CreditsBox(),
