@@ -128,7 +128,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
           children: [
             Text('FL Studio Controller'),
             Text(
-              'USB MIDI / Generic Controller',
+              'Performance Deck · USB MIDI / MPE',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
             ),
           ],
@@ -505,6 +505,490 @@ class _ControlArea extends ConsumerWidget {
         ),
       ],
       ),
+    );
+  }
+}
+
+
+class _StudioProfiles extends ConsumerWidget {
+  const _StudioProfiles();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(presetNotifierProvider);
+
+    return _SectionCard(
+      title: 'SCENES',
+      subtitle: 'Five persistent scenes. MIDI/channel settings follow the selected scene.',
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (int i = 1; i <= PresetNotfier.numberOfPresets; i++)
+            ChoiceChip(
+              label: Text('P$i'),
+              selected: current == i,
+              showCheckmark: false,
+              onSelected: (_) {
+                HapticFeedback.selectionClick();
+                ref.read(presetNotifierProvider.notifier).setAndSave(i);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmartAssistCard extends ConsumerWidget {
+  const _SmartAssistCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scale = ref.watch(flScaleProvider);
+    final root = ref.watch(flScaleRootProvider);
+    final scaleLock = ref.watch(flScaleLockProvider);
+    final touchDynamics = ref.watch(flTouchDynamicsProvider);
+
+    return _SectionCard(
+      title: 'SMART ASSIST',
+      subtitle: 'Performance helpers stay local and never add a MIDI buffering layer.',
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<FlScale>(
+                  value: scale,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Scale',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    for (final item in FlScale.values)
+                      DropdownMenuItem(
+                        value: item,
+                        child: Text(item.label),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    HapticFeedback.selectionClick();
+                    ref.read(flScaleProvider.notifier).setAndSave(value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 94,
+                child: DropdownButtonFormField<int>(
+                  value: root,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Root',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    for (int note = 0; note < 12; note++)
+                      DropdownMenuItem(
+                        value: note,
+                        child: Text(
+                          MidiUtils.getNoteName(
+                            note + 60,
+                            showOctaveIndex: false,
+                          ),
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    HapticFeedback.selectionClick();
+                    ref.read(flScaleRootProvider.notifier).setAndSave(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('Scale Lock'),
+            subtitle: const Text('Disable keys outside the selected scale.'),
+            value: scaleLock,
+            onChanged: (value) {
+              HapticFeedback.selectionClick();
+              ref.read(flScaleLockProvider.notifier).setAndSave(value);
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('Touch Dynamics'),
+            subtitle: const Text(
+              'Use hardware pressure for Velocity when available; otherwise keep fixed Velocity.',
+            ),
+            value: touchDynamics,
+            onChanged: (value) {
+              HapticFeedback.selectionClick();
+              ref.read(flTouchDynamicsProvider.notifier).setAndSave(value);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> _showCcEditor(
+  BuildContext context, {
+  required String label,
+  required int current,
+  required ValueChanged<int> onSave,
+}) async {
+  final controller = TextEditingController(text: '$current');
+  final result = await showDialog<int>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text('$label · MIDI CC'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(3),
+          ],
+          decoration: const InputDecoration(
+            labelText: 'Controller number',
+            helperText: '0–127',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (text) {
+            final value = int.tryParse(text);
+            if (value != null && value >= 0 && value <= 127) {
+              Navigator.pop(dialogContext, value);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = int.tryParse(controller.text);
+              if (value != null && value >= 0 && value <= 127) {
+                Navigator.pop(dialogContext, value);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      );
+    },
+  );
+  controller.dispose();
+
+  if (result != null) {
+    HapticFeedback.selectionClick();
+    onSave(result);
+  }
+}
+
+class _XyControlPad extends ConsumerStatefulWidget {
+  const _XyControlPad({
+    required this.channel,
+    required this.onCc,
+  });
+
+  final int channel;
+  final void Function(int controller, int value) onCc;
+
+  @override
+  ConsumerState<_XyControlPad> createState() => _XyControlPadState();
+}
+
+class _XyControlPadState extends ConsumerState<_XyControlPad> {
+  Offset _position = const Offset(0.5, 0.5);
+
+  void _update(Offset local, Size size, int xCc, int yCc) {
+    final x = (local.dx / size.width).clamp(0.0, 1.0);
+    final y = (1 - local.dy / size.height).clamp(0.0, 1.0);
+    setState(() => _position = Offset(x, y));
+    widget.onCc(xCc, (x * 127).round());
+    widget.onCc(yCc, (y * 127).round());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final xCc = ref.watch(flXyXCcProvider);
+    final yCc = ref.watch(flXyYCcProvider);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _CcBadge(
+                axis: 'X',
+                controller: xCc,
+                value: (_position.dx * 127).round(),
+                onTap: () => _showCcEditor(
+                  context,
+                  label: 'XY X',
+                  current: xCc,
+                  onSave: (value) =>
+                      ref.read(flXyXCcProvider.notifier).setAndSave(value),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CcBadge(
+                axis: 'Y',
+                controller: yCc,
+                value: (_position.dy * 127).round(),
+                onTap: () => _showCcEditor(
+                  context,
+                  label: 'XY Y',
+                  current: yCc,
+                  onSave: (value) =>
+                      ref.read(flXyYCcProvider.notifier).setAndSave(value),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final size = Size(constraints.maxWidth, 142);
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) =>
+                  _update(details.localPosition, size, xCc, yCc),
+              onPanDown: (details) =>
+                  _update(details.localPosition, size, xCc, yCc),
+              onPanUpdate: (details) =>
+                  _update(details.localPosition, size, xCc, yCc),
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomLeft,
+                      end: Alignment.topRight,
+                      colors: [
+                        scheme.surfaceContainerHighest,
+                        scheme.primaryContainer,
+                      ],
+                    ),
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                  child: Stack(
+                    children: [
+                      Align(
+                        alignment: Alignment.center,
+                        child: Container(
+                          height: 1,
+                          color: scheme.outline.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 1,
+                          color: scheme.outline.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      Positioned(
+                        left: _position.dx * (size.width - 30),
+                        top: (1 - _position.dy) * (size.height - 30),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: scheme.primary,
+                            border: Border.all(
+                              color: scheme.onPrimary,
+                              width: 2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _CcBadge extends StatelessWidget {
+  const _CcBadge({
+    required this.axis,
+    required this.controller,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String axis;
+  final int controller;
+  final int value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Text(
+              axis,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const Spacer(),
+            Text('CC$controller · $value'),
+            const SizedBox(width: 4),
+            const Icon(Icons.tune, size: 15),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MacroDeck extends ConsumerWidget {
+  const _MacroDeck({
+    required this.channel,
+    required this.onCc,
+  });
+
+  final int channel;
+  final void Function(int controller, int value) onCc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controllers = <int>[
+      ref.watch(flMacro1CcProvider),
+      ref.watch(flMacro2CcProvider),
+      ref.watch(flMacro3CcProvider),
+      ref.watch(flMacro4CcProvider),
+    ];
+    final providers = <NotifierProvider<SettingIntNotifier, int>>[
+      flMacro1CcProvider,
+      flMacro2CcProvider,
+      flMacro3CcProvider,
+      flMacro4CcProvider,
+    ];
+
+    return Column(
+      children: [
+        for (int i = 0; i < controllers.length; i++) ...[
+          _MacroSlider(
+            label: 'M${i + 1}',
+            controller: controllers[i],
+            onChanged: (value) => onCc(controllers[i], value),
+            onEdit: () => _showCcEditor(
+              context,
+              label: 'Macro ${i + 1}',
+              current: controllers[i],
+              onSave: (value) =>
+                  ref.read(providers[i].notifier).setAndSave(value),
+            ),
+          ),
+          if (i != controllers.length - 1) const SizedBox(height: 6),
+        ],
+      ],
+    );
+  }
+}
+
+class _MacroSlider extends StatefulWidget {
+  const _MacroSlider({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+    required this.onEdit,
+  });
+
+  final String label;
+  final int controller;
+  final ValueChanged<int> onChanged;
+  final VoidCallback onEdit;
+
+  @override
+  State<_MacroSlider> createState() => _MacroSliderState();
+}
+
+class _MacroSliderState extends State<_MacroSlider> {
+  double _value = 64;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 32,
+          child: Text(
+            widget.label,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
+        Expanded(
+          child: Slider(
+            min: 0,
+            max: 127,
+            value: _value,
+            onChanged: (value) {
+              setState(() => _value = value);
+              widget.onChanged(value.round());
+            },
+          ),
+        ),
+        SizedBox(
+          width: 34,
+          child: Text(
+            '${_value.round()}',
+            textAlign: TextAlign.end,
+          ),
+        ),
+        const SizedBox(width: 6),
+        ActionChip(
+          visualDensity: VisualDensity.compact,
+          label: Text('CC${widget.controller}'),
+          avatar: const Icon(Icons.tune, size: 15),
+          onPressed: widget.onEdit,
+        ),
+      ],
     );
   }
 }
