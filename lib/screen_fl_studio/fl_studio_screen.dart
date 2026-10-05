@@ -5,6 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+enum _TouchInstrument {
+  keyboard('Keyboard', Icons.piano),
+  drums('Drums', Icons.grid_view_rounded),
+  smartChords('Smart Chords', Icons.library_music_rounded);
+
+  const _TouchInstrument(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
+
 class FlStudioScreen extends ConsumerStatefulWidget {
   const FlStudioScreen({super.key});
 
@@ -13,6 +25,8 @@ class FlStudioScreen extends ConsumerStatefulWidget {
 }
 
 class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  _TouchInstrument _instrument = _TouchInstrument.keyboard;
   int _keyboardBaseNote = 48;
   int _fpcBaseNote = 36;
   double _pitch = 0;
@@ -94,135 +108,194 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     final scaleRoot = ref.watch(flScaleRootProvider);
     final scaleLock = ref.watch(flScaleLockProvider);
     final touchDynamics = ref.watch(flTouchDynamicsProvider);
+
     final scheme = ColorScheme.fromSeed(
-      seedColor: Palette.cadetBlue,
+      seedColor: const Color(0xFF4A90E2),
       brightness: Brightness.dark,
+      surface: const Color(0xFF171717),
     );
-    final modernTheme = ThemeData(
+    final theme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.surface,
-      appBarTheme: AppBarTheme(
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
-        elevation: 0,
-        centerTitle: false,
-      ),
+      scaffoldBackgroundColor: const Color(0xFF111111),
+      dividerColor: Colors.white12,
       sliderTheme: SliderThemeData(
         activeTrackColor: scheme.primary,
         thumbColor: scheme.primary,
-        overlayColor: scheme.primary.withValues(alpha: 0.14),
+        overlayColor: scheme.primary.withValues(alpha: 0.12),
       ),
     );
 
-    return Theme(
-      data: modernTheme,
-      child: Scaffold(
-      drawer: const Drawer(child: MidiConfig()),
-      appBar: AppBar(
-        titleSpacing: 8,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('FL Studio Controller'),
-            Text(
-              'Performance Deck · USB MIDI / MPE',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+    final controls = _ControlArea(
+      pitch: _pitch,
+      mod: _mod,
+      sustain: _sustain,
+      channel: channel,
+      velocity: velocity,
+      onPitchChanged: _setPitch,
+      onPitchEnd: _resetPitch,
+      onModChanged: _setMod,
+      onSustainChanged: _setSustain,
+      onTransportCc: _sendMomentaryCc,
+      onCc: _sendCc,
+      onPanic: _panic,
+    );
+
+    void showControls() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: scheme.surface,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: FractionallySizedBox(
+              heightFactor: 0.88,
+              child: SingleChildScrollView(child: controls),
             ),
-          ],
-        ),
-        actions: [
-          _ConnectionPill(count: connected.length),
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: 'Panic / All notes off',
-            onPressed: _panic,
-            icon: const Icon(Icons.warning_amber_rounded),
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final landscape = constraints.maxWidth > constraints.maxHeight;
-            final performance = _PerformanceArea(
-              keyboardBaseNote: _keyboardBaseNote,
-              fpcBaseNote: _fpcBaseNote,
-              velocity: velocity,
-              scale: scale,
-              scaleRoot: scaleRoot,
-              scaleLock: scaleLock,
-              touchDynamics: touchDynamics,
-              onNoteOn: _noteOn,
-              onNoteOff: _noteOff,
-              onOctaveDown: () {
-                setState(() {
-                  _keyboardBaseNote = (_keyboardBaseNote - 12).clamp(0, 96).toInt();
-                });
-              },
-              onOctaveUp: () {
-                setState(() {
-                  _keyboardBaseNote = (_keyboardBaseNote + 12).clamp(0, 96).toInt();
-                });
-              },
-              onFpcBankDown: () {
-                setState(() {
-                  _fpcBaseNote = (_fpcBaseNote - 16).clamp(0, 111).toInt();
-                });
-              },
-              onFpcBankUp: () {
-                setState(() {
-                  _fpcBaseNote = (_fpcBaseNote + 16).clamp(0, 111).toInt();
-                });
-              },
-            );
-            final controls = _ControlArea(
-              pitch: _pitch,
-              mod: _mod,
-              sustain: _sustain,
-              channel: channel,
-              velocity: velocity,
-              onPitchChanged: _setPitch,
-              onPitchEnd: _resetPitch,
-              onModChanged: _setMod,
-              onSustainChanged: _setSustain,
-              onTransportCc: _sendMomentaryCc,
-              onCc: _sendCc,
-              onPanic: _panic,
-            );
+          );
+        },
+      );
+    }
 
-            if (landscape) {
-              return ColoredBox(
-                color: scheme.surface,
-                child: Row(
-                  children: [
-                    Expanded(flex: 7, child: performance),
-                    const VerticalDivider(width: 1),
-                    SizedBox(
-                      width: 300,
-                      child: SingleChildScrollView(child: controls),
+    void showInstrumentBrowser() {
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: scheme.surface,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Touch Instruments',
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 14),
+                  for (final item in _TouchInstrument.values) ...[
+                    _InstrumentBrowserTile(
+                      instrument: item,
+                      selected: item == _instrument,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _instrument = item);
+                        Navigator.pop(sheetContext);
+                      },
                     ),
+                    const SizedBox(height: 8),
                   ],
-                ),
-              );
-            }
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
 
-            return ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                SizedBox(height: 570, child: performance),
-                const Divider(height: 1),
-                controls,
-              ],
-            );
-          },
+    Widget instrumentView() {
+      switch (_instrument) {
+        case _TouchInstrument.keyboard:
+          return _KeyboardInstrumentView(
+            baseNote: _keyboardBaseNote,
+            velocity: velocity,
+            scale: scale,
+            scaleRoot: scaleRoot,
+            scaleLock: scaleLock,
+            touchDynamics: touchDynamics,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+            onOctaveDown: () {
+              setState(() {
+                _keyboardBaseNote =
+                    (_keyboardBaseNote - 12).clamp(0, 96).toInt();
+              });
+            },
+            onOctaveUp: () {
+              setState(() {
+                _keyboardBaseNote =
+                    (_keyboardBaseNote + 12).clamp(0, 96).toInt();
+              });
+            },
+          );
+        case _TouchInstrument.drums:
+          return _DrumsInstrumentView(
+            baseNote: _fpcBaseNote,
+            velocity: velocity,
+            touchDynamics: touchDynamics,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+            onBankDown: () {
+              setState(() {
+                _fpcBaseNote = (_fpcBaseNote - 16).clamp(0, 111).toInt();
+              });
+            },
+            onBankUp: () {
+              setState(() {
+                _fpcBaseNote = (_fpcBaseNote + 16).clamp(0, 111).toInt();
+              });
+            },
+          );
+        case _TouchInstrument.smartChords:
+          return _SmartChordsView(
+            scale: scale,
+            scaleRoot: scaleRoot,
+            velocity: velocity,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+          );
+      }
+    }
+
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const Drawer(child: MidiConfig()),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _GarageControlBar(
+                instrument: _instrument,
+                connectedCount: connected.length,
+                onOpenInstrumentBrowser: showInstrumentBrowser,
+                onOpenMidiDevices: () => _scaffoldKey.currentState?.openDrawer(),
+                onGoToBeginning: () => _sendMomentaryCc(115),
+                onPlay: () => _sendMomentaryCc(111),
+                onStop: () => _sendMomentaryCc(112),
+                onRecord: () => _sendMomentaryCc(110),
+                onMetronome: () => _sendMomentaryCc(114),
+                onControls: showControls,
+                onPanic: _panic,
+              ),
+              const _MeasureRuler(),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: KeyedSubtree(
+                    key: ValueKey(_instrument),
+                    child: instrumentView(),
+                  ),
+                ),
+              ),
+              _InstrumentStatusBar(
+                channel: channel,
+                velocity: velocity,
+                scale: scale,
+                scaleRoot: scaleRoot,
+                scaleLock: scaleLock,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -375,7 +448,7 @@ class _ControlArea extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
         _SectionCard(
-          title: 'MIDI',
+          title: 'TRACK',
           child: Row(
             children: [
               Expanded(child: _Metric(label: 'CHANNEL', value: '${channel + 1}')),
@@ -390,7 +463,7 @@ class _ControlArea extends ConsumerWidget {
         _SmartAssistCard(),
         const SizedBox(height: 10),
         _SectionCard(
-          title: 'XY CONTROL',
+          title: 'REMIX FX',
           subtitle: 'Two-axis continuous control. Defaults: X=CC74, Y=CC71.',
           child: _XyControlPad(
             channel: channel,
@@ -399,7 +472,7 @@ class _ControlArea extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         _SectionCard(
-          title: 'SMART MACROS',
+          title: 'PLUG-IN CONTROLS',
           subtitle: 'Four assignable CC macros for FL Studio Link to controller.',
           child: _MacroDeck(
             channel: channel,
@@ -408,7 +481,7 @@ class _ControlArea extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         _SectionCard(
-          title: 'PERFORMANCE',
+          title: 'KEYBOARD CONTROLS',
           child: Column(
             children: [
               Row(
@@ -457,42 +530,6 @@ class _ControlArea extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
-        _SectionCard(
-          title: 'FL TRANSPORT · LEARNABLE CC',
-          subtitle: 'Map CC110–114 once in FL Studio.',
-          child: Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              _TransportButton(
-                icon: Icons.fiber_manual_record,
-                label: 'REC',
-                onPressed: () => onTransportCc(110),
-              ),
-              _TransportButton(
-                icon: Icons.play_arrow,
-                label: 'PLAY',
-                onPressed: () => onTransportCc(111),
-              ),
-              _TransportButton(
-                icon: Icons.stop,
-                label: 'STOP',
-                onPressed: () => onTransportCc(112),
-              ),
-              _TransportButton(
-                icon: Icons.repeat,
-                label: 'LOOP',
-                onPressed: () => onTransportCc(113),
-              ),
-              _TransportButton(
-                icon: Icons.timer_outlined,
-                label: 'METRO',
-                onPressed: () => onTransportCc(114),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
         FilledButton.tonalIcon(
           style: FilledButton.styleFrom(
             foregroundColor: scheme.error,
@@ -517,7 +554,7 @@ class _StudioProfiles extends ConsumerWidget {
     final current = ref.watch(presetNotifierProvider);
 
     return _SectionCard(
-      title: 'SCENES',
+      title: 'SOUNDS',
       subtitle: 'Five persistent scenes. MIDI/channel settings follow the selected scene.',
       child: Wrap(
         spacing: 6,
@@ -550,7 +587,7 @@ class _SmartAssistCard extends ConsumerWidget {
     final touchDynamics = ref.watch(flTouchDynamicsProvider);
 
     return _SectionCard(
-      title: 'SMART ASSIST',
+      title: 'SMART CONTROLS',
       subtitle: 'Performance helpers stay local and never add a MIDI buffering layer.',
       child: Column(
         children: [
