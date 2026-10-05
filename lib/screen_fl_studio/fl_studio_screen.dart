@@ -7,6 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+enum _StudioWorkspace {
+  instrument('乐器', Icons.piano_rounded),
+  tracks('轨道', Icons.view_timeline_rounded),
+  mixer('混音', Icons.tune_rounded),
+  browser('浏览器', Icons.library_music_rounded);
+
+  const _StudioWorkspace(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
 enum _KeyboardSwipeMode {
   glissando('滑奏', Icons.swipe_rounded),
   scroll('滚动', Icons.swap_horiz_rounded),
@@ -44,7 +55,9 @@ class FlStudioScreen extends ConsumerStatefulWidget {
 
 class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  _StudioWorkspace _workspace = _StudioWorkspace.instrument;
   _TouchInstrument _instrument = _TouchInstrument.keyboard;
+  final StudioSession _session = StudioSession();
   int _keyboardBaseNote = 48;
   _KeyboardSwipeMode _keyboardSwipeMode = _KeyboardSwipeMode.glissando;
   int _fpcBaseNote = 36;
@@ -61,17 +74,25 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   @override
   void initState() {
     super.initState();
+    _session.addListener(_onSessionChanged);
     _performance = PerformanceRouter(
       channel: () => ref.read(channelUsableProv),
       velocity: () => ref.read(velocityProv),
       localAudioEnabled: () => ref.read(flLocalAudioEnabledProvider),
       percussive: () => _percussiveInstrument,
+      eventTap: _session.ingest,
     );
     unawaited(LocalSynth.instance.ensureReady());
   }
 
+  void _onSessionChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _session.removeListener(_onSessionChanged);
+    _session.dispose();
     _performance.sustain(false);
     _performance.pitch(0);
     _performance.panic();
@@ -125,6 +146,36 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   Future<void> _sendMomentaryCc(int controller) {
     return _performance.transport(controller);
   }
+  Future<void> _toggleRecord() async {
+    if (_session.recording) {
+      _session.stopRecording();
+    } else {
+      _session.startRecording();
+      setState(() => _workspace = _StudioWorkspace.instrument);
+    }
+    await _sendMomentaryCc(110);
+  }
+
+  Future<void> _playSession() async {
+    if (!_session.clip.isEmpty) {
+      _session.play(
+        noteOn: (note, velocity) => _performance.noteOn(
+          note,
+          velocity: velocity,
+        ),
+        noteOff: (note) => _performance.noteOff(note),
+      );
+    }
+    await _sendMomentaryCc(111);
+  }
+
+  Future<void> _stopSession() async {
+    _session.stopPlayback();
+    if (_session.recording) _session.stopRecording();
+    _panic();
+    await _sendMomentaryCc(112);
+  }
+
 
   void _panic() {
     HapticFeedback.mediumImpact();
@@ -224,53 +275,7 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
     }
 
     void showInstrumentBrowser() {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: false,
-        backgroundColor: scheme.surface,
-        showDragHandle: true,
-        builder: (sheetContext) {
-          return DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.72,
-            minChildSize: 0.32,
-            maxChildSize: 0.94,
-            builder: (context, scrollController) {
-              return SafeArea(
-                top: false,
-                child: ListView.separated(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                  itemCount: _TouchInstrument.values.length + 1,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(
-                          '触控乐器',
-                          style: Theme.of(sheetContext).textTheme.titleLarge,
-                        ),
-                      );
-                    }
-                    final item = _TouchInstrument.values[index - 1];
-                    return _InstrumentBrowserTile(
-                      instrument: item,
-                      selected: item == _instrument,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _instrument = item);
-                        Navigator.pop(sheetContext);
-                      },
-                    );
-                  },
-                ),
-              );
-            },
-          );
-        },
-      );
+      setState(() => _workspace = _StudioWorkspace.browser);
     }
 
     Widget instrumentView() {
@@ -390,6 +395,40 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
       }
     }
 
+    Widget workspaceView() {
+      switch (_workspace) {
+        case _StudioWorkspace.instrument:
+          return instrumentView();
+        case _StudioWorkspace.tracks:
+          return _TracksWorkspace(
+            session: _session,
+            instrument: _instrument,
+            onPlay: _playSession,
+            onStop: _stopSession,
+            onRecord: _toggleRecord,
+            onClear: _session.clear,
+          );
+        case _StudioWorkspace.mixer:
+          return _MixerWorkspace(
+            controls: controls,
+            localAudioEnabled: localAudioEnabled,
+            localAudioVolume: localAudioVolume,
+            localTone: localTone,
+          );
+        case _StudioWorkspace.browser:
+          return _BrowserWorkspace(
+            selected: _instrument,
+            onSelect: (instrument) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _instrument = instrument;
+                _workspace = _StudioWorkspace.instrument;
+              });
+            },
+          );
+      }
+    }
+
     return Theme(
       data: theme,
       child: Scaffold(
@@ -428,9 +467,9 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                         if (!next) LocalSynth.instance.panic();
                       },
                       onGoToBeginning: () => _sendMomentaryCc(115),
-                      onPlay: () => _sendMomentaryCc(111),
-                      onStop: () => _sendMomentaryCc(112),
-                      onRecord: () => _sendMomentaryCc(110),
+                      onPlay: _playSession,
+                      onStop: _stopSession,
+                      onRecord: _toggleRecord,
                       onMetronome: () => _sendMomentaryCc(114),
                       onControls: showControls,
                       onPanic: _panic,
@@ -442,10 +481,19 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
                         child: KeyedSubtree(
-                          key: ValueKey(_instrument),
-                          child: instrumentView(),
+                          key: ValueKey(
+                            '${_workspace.name}:${_instrument.name}',
+                          ),
+                          child: workspaceView(),
                         ),
                       ),
+                    ),
+                    _WorkspaceNavigation(
+                      selected: _workspace,
+                      recording: _session.recording,
+                      onSelected: (workspace) {
+                        setState(() => _workspace = workspace);
+                      },
                     ),
                     _InstrumentStatusBar(
                       channel: channel,
@@ -466,6 +514,352 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
   }
 }
 
+
+class _WorkspaceNavigation extends StatelessWidget {
+  const _WorkspaceNavigation({
+    required this.selected,
+    required this.recording,
+    required this.onSelected,
+  });
+
+  final _StudioWorkspace selected;
+  final bool recording;
+  final ValueChanged<_StudioWorkspace> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 48,
+      decoration: const BoxDecoration(
+        color: Color(0xFF181818),
+        border: Border(top: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        children: [
+          for (final workspace in _StudioWorkspace.values)
+            Expanded(
+              child: InkWell(
+                onTap: () => onSelected(workspace),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  decoration: BoxDecoration(
+                    color: selected == workspace
+                        ? scheme.primaryContainer.withValues(alpha: 0.45)
+                        : Colors.transparent,
+                    border: Border(
+                      top: BorderSide(
+                        color: selected == workspace
+                            ? scheme.primary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            workspace.icon,
+                            size: 18,
+                            color: selected == workspace
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                          if (workspace == _StudioWorkspace.tracks &&
+                              recording)
+                            const Positioned(
+                              right: -4,
+                              top: -3,
+                              child: CircleAvatar(
+                                radius: 3,
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        workspace.label,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TracksWorkspace extends StatelessWidget {
+  const _TracksWorkspace({
+    required this.session,
+    required this.instrument,
+    required this.onPlay,
+    required this.onStop,
+    required this.onRecord,
+    required this.onClear,
+  });
+
+  final StudioSession session;
+  final _TouchInstrument instrument;
+  final Future<void> Function() onPlay;
+  final Future<void> Function() onStop;
+  final Future<void> Function() onRecord;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final clip = session.clip;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Column(
+        children: [
+          Container(
+            height: 54,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1B1B1B),
+              border: Border(bottom: BorderSide(color: Colors.white10)),
+            ),
+            child: Row(
+              children: [
+                Icon(instrument.icon, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '${instrument.label} · 轨道 1',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: '播放本地片段',
+                  onPressed: clip.isEmpty ? null : onPlay,
+                  icon: Icon(
+                    session.playing
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_arrow_rounded,
+                  ),
+                ),
+                IconButton(
+                  tooltip: session.recording ? '结束录制' : '录制到本地轨道',
+                  onPressed: onRecord,
+                  color: session.recording ? scheme.error : null,
+                  icon: Icon(
+                    session.recording
+                        ? Icons.stop_circle_rounded
+                        : Icons.fiber_manual_record_rounded,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '停止',
+                  onPressed: onStop,
+                  icon: const Icon(Icons.stop_rounded),
+                ),
+                IconButton(
+                  tooltip: '清空片段',
+                  onPressed: clip.isEmpty ? null : onClear,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: clip.isEmpty && !session.recording
+                ? Center(
+                    child: Text(
+                      '按录制后返回“乐器”演奏，AXYP 音符会写入本地轨道。',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  )
+                : _RecordedClipLane(
+                    clip: clip,
+                    recording: session.recording,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordedClipLane extends StatelessWidget {
+  const _RecordedClipLane({
+    required this.clip,
+    required this.recording,
+  });
+
+  final StudioClip clip;
+  final bool recording;
+
+  @override
+  Widget build(BuildContext context) {
+    final notes = clip.notes;
+    if (notes.isEmpty) {
+      return Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (recording) ...[
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+            ],
+            const Text('正在等待演奏输入…'),
+          ],
+        ),
+      );
+    }
+
+    final minNote = notes.map((note) => note.note).reduce(math.min);
+    final maxNote = notes.map((note) => note.note).reduce(math.max);
+    final span = math.max(1, maxNote - minNote + 1);
+    final length = math.max(1, clip.lengthMicros);
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF171717),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Stack(
+              children: [
+                for (int beat = 1; beat < 8; beat++)
+                  Positioned(
+                    left: constraints.maxWidth * beat / 8,
+                    top: 0,
+                    bottom: 0,
+                    child: const VerticalDivider(
+                      width: 1,
+                      color: Colors.white10,
+                    ),
+                  ),
+                for (final note in notes)
+                  Positioned(
+                    left: constraints.maxWidth * note.startMicros / length,
+                    width: math.max(
+                      4.0,
+                      constraints.maxWidth * note.durationMicros / length,
+                    ),
+                    top: constraints.maxHeight *
+                        (maxNote - note.note) /
+                        span,
+                    height: math.max(
+                      7.0,
+                      constraints.maxHeight / span * 0.72,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MixerWorkspace extends StatelessWidget {
+  const _MixerWorkspace({
+    required this.controls,
+    required this.localAudioEnabled,
+    required this.localAudioVolume,
+    required this.localTone,
+  });
+
+  final Widget controls;
+  final bool localAudioEnabled;
+  final int localAudioVolume;
+  final FlLocalTone localTone;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.speaker_group_rounded),
+            title: const Text('主输出'),
+            subtitle: Text(
+              localAudioEnabled
+                  ? '本地监听 · $localAudioVolume% · ${localTone.label}'
+                  : '本地监听已关闭',
+            ),
+          ),
+          const Divider(),
+          controls,
+        ],
+      ),
+    );
+  }
+}
+
+class _BrowserWorkspace extends StatelessWidget {
+  const _BrowserWorkspace({
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final _TouchInstrument selected;
+  final ValueChanged<_TouchInstrument> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 900
+              ? 4
+              : constraints.maxWidth >= 600
+                  ? 3
+                  : 2;
+          return GridView.builder(
+            padding: const EdgeInsets.all(14),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.65,
+            ),
+            itemCount: _TouchInstrument.values.length,
+            itemBuilder: (context, index) {
+              final instrument = _TouchInstrument.values[index];
+              return _InstrumentBrowserTile(
+                instrument: instrument,
+                selected: selected == instrument,
+                onTap: () => onSelect(instrument),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
 
 class _GarageControlBar extends StatelessWidget {
   const _GarageControlBar({
