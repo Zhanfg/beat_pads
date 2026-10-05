@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum _TouchInstrument {
   keyboard('键盘', Icons.piano),
+  guitar('吉他', Icons.music_note_rounded),
+  bass('贝斯', Icons.multitrack_audio_rounded),
   drums('鼓组', Icons.grid_view_rounded),
   smartChords('智能和弦', Icons.library_music_rounded),
   arpeggiator('琶音器', Icons.graphic_eq_rounded),
@@ -230,6 +232,28 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
                     (_keyboardBaseNote + 12).clamp(0, 96).toInt();
               });
             },
+          );
+        case _TouchInstrument.guitar:
+          return _FretboardView(
+            title: '吉他',
+            tuning: const <int>[40, 45, 50, 55, 59, 64],
+            stringNames: const <String>['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+            frets: 12,
+            velocity: velocity,
+            touchDynamics: touchDynamics,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
+          );
+        case _TouchInstrument.bass:
+          return _FretboardView(
+            title: '贝斯',
+            tuning: const <int>[28, 33, 38, 43],
+            stringNames: const <String>['E1', 'A1', 'D2', 'G2'],
+            frets: 12,
+            velocity: velocity,
+            touchDynamics: touchDynamics,
+            onNoteOn: _noteOn,
+            onNoteOff: _noteOff,
           );
         case _TouchInstrument.drums:
           return _DrumsInstrumentView(
@@ -733,6 +757,244 @@ class _KeyboardInstrumentView extends StatelessWidget {
                 onNoteOff: onNoteOff,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _FretboardView extends StatelessWidget {
+  const _FretboardView({
+    required this.title,
+    required this.tuning,
+    required this.stringNames,
+    required this.frets,
+    required this.velocity,
+    required this.touchDynamics,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final String title;
+  final List<int> tuning;
+  final List<String> stringNames;
+  final int frets;
+  final int velocity;
+  final bool touchDynamics;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: const Color(0xFF101010),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(width: 10),
+                Text(
+                  '标准定弦 · $frets 品',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const Spacer(),
+                const Icon(Icons.swipe_rounded, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '横向滑动查看更多品位',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: SizedBox(
+                  width: 72 + (frets + 1) * 64,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(width: 72),
+                          for (int fret = 0; fret <= frets; fret++)
+                            SizedBox(
+                              width: 64,
+                              child: Center(
+                                child: Text(
+                                  fret == 0 ? '空弦' : '$fret',
+                                  style:
+                                      Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      for (int string = tuning.length - 1;
+                          string >= 0;
+                          string--)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 72,
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 34,
+                                      child: Text(
+                                        stringNames[string],
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelMedium,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Container(
+                                        height: 2,
+                                        color: scheme.outline,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              for (int fret = 0; fret <= frets; fret++)
+                                SizedBox(
+                                  width: 64,
+                                  height: double.infinity,
+                                  child: _FretCell(
+                                    note: tuning[string] + fret,
+                                    fret: fret,
+                                    velocity: velocity,
+                                    touchDynamics: touchDynamics,
+                                    onNoteOn: onNoteOn,
+                                    onNoteOff: onNoteOff,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FretCell extends StatefulWidget {
+  const _FretCell({
+    required this.note,
+    required this.fret,
+    required this.velocity,
+    required this.touchDynamics,
+    required this.onNoteOn,
+    required this.onNoteOff,
+  });
+
+  final int note;
+  final int fret;
+  final int velocity;
+  final bool touchDynamics;
+  final void Function(int note, {int? velocity}) onNoteOn;
+  final ValueChanged<int> onNoteOff;
+
+  @override
+  State<_FretCell> createState() => _FretCellState();
+}
+
+class _FretCellState extends State<_FretCell> {
+  final Set<int> _pointers = <int>{};
+
+  void _down(PointerDownEvent event) {
+    if (_pointers.isEmpty) {
+      widget.onNoteOn(
+        widget.note,
+        velocity: _velocityFromTouch(
+          event,
+          widget.velocity,
+          widget.touchDynamics,
+        ),
+      );
+    }
+    _pointers.add(event.pointer);
+    if (mounted) setState(() {});
+  }
+
+  void _up(int pointer) {
+    _pointers.remove(pointer);
+    if (_pointers.isEmpty) widget.onNoteOff(widget.note);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final active = _pointers.isNotEmpty;
+    final showMarker =
+        widget.fret == 3 ||
+        widget.fret == 5 ||
+        widget.fret == 7 ||
+        widget.fret == 9 ||
+        widget.fret == 12;
+
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _down,
+      onPointerUp: (event) => _up(event.pointer),
+      onPointerCancel: (event) => _up(event.pointer),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 45),
+        decoration: BoxDecoration(
+          color: active
+              ? scheme.primaryContainer
+              : widget.fret.isEven
+                  ? const Color(0xFF24201D)
+                  : const Color(0xFF2B2622),
+          border: Border(
+            right: BorderSide(
+              color: widget.fret == 0
+                  ? const Color(0xFFE4E0D6)
+                  : const Color(0xFF8B8178),
+              width: widget.fret == 0 ? 3 : 1.2,
+            ),
+            bottom: const BorderSide(color: Colors.white10),
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              height: 2,
+              color: const Color(0xFFB9B1A8),
+            ),
+            if (showMarker)
+              Container(
+                width: widget.fret == 12 ? 11 : 8,
+                height: widget.fret == 12 ? 11 : 8,
+                decoration: BoxDecoration(
+                  color: scheme.onSurface.withValues(alpha: 0.34),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            if (active)
+              Text(
+                MidiUtils.getNoteName(widget.note),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
           ],
         ),
       ),
