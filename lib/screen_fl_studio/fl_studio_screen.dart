@@ -404,7 +404,7 @@ class _GarageControlBar extends StatelessWidget {
               children: [
                 const SizedBox(width: 2),
                 _BarButton(
-                  tooltip: 'Touch Instruments',
+                  tooltip: '触控乐器',
                   onPressed: onOpenInstrumentBrowser,
                   icon: Icons.apps_rounded,
                 ),
