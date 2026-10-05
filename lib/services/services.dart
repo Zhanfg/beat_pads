@@ -3,6 +3,7 @@ export 'constants/const_colors.dart';
 export 'input/multi_touch_note_router.dart';
 export 'input/touch_geometry.dart';
 export 'protocol/axyp_event.dart';
+export 'protocol/midi_note_gate.dart';
 export 'protocol/performance_router.dart';
 export 'session/studio_project.dart';
 export 'session/studio_session.dart';
