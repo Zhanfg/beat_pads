@@ -1,6 +1,18 @@
 import 'package:beat_pads/services/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+enum FlLocalTone {
+  warm('温暖', 'triangle'),
+  bright('明亮', 'fSaw'),
+  pulse('脉冲', 'fSquare'),
+  pure('纯音', 'sin');
+
+  const FlLocalTone(this.label, this.waveform);
+
+  final String label;
+  final String waveform;
+}
+
 enum FlScale {
   chromatic('半音阶', <int>[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
   major('大调', <int>[0, 2, 4, 5, 7, 9, 11]),
@@ -57,6 +69,36 @@ final flTouchDynamicsProvider = NotifierProvider<SettingBoolNotifier, bool>(() {
   return SettingBoolNotifier(
     key: 'fl_touch_dynamics',
     defaultValue: true,
+    usesPresets: false,
+  );
+});
+
+final flLocalAudioEnabledProvider =
+    NotifierProvider<SettingBoolNotifier, bool>(() {
+  return SettingBoolNotifier(
+    key: 'fl_local_audio_enabled',
+    defaultValue: true,
+    usesPresets: false,
+  );
+});
+
+final flLocalAudioVolumeProvider =
+    NotifierProvider<SettingIntNotifier, int>(() {
+  return SettingIntNotifier(
+    key: 'fl_local_audio_volume',
+    defaultValue: 68,
+    min: 0,
+    max: 100,
+    usesPresets: false,
+  );
+});
+
+final flLocalToneProvider =
+    NotifierProvider<SettingEnumNotifier<FlLocalTone>, FlLocalTone>(() {
+  return SettingEnumNotifier<FlLocalTone>(
+    nameMap: FlLocalTone.values.asNameMap(),
+    key: 'fl_local_tone',
+    defaultValue: FlLocalTone.warm,
     usesPresets: false,
   );
 });
