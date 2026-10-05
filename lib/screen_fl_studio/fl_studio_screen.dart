@@ -421,7 +421,6 @@ class _FlStudioScreenState extends ConsumerState<FlStudioScreen> {
             onPlay: _playSession,
             onStop: _stopSession,
             onRecord: _toggleRecord,
-            onClear: _session.clear,
           );
         case _StudioWorkspace.mixer:
           return _MixerWorkspace(
@@ -722,7 +721,6 @@ class _TracksWorkspace extends StatefulWidget {
     required this.onPlay,
     required this.onStop,
     required this.onRecord,
-    required this.onClear,
   });
 
   final StudioSession session;
@@ -730,7 +728,6 @@ class _TracksWorkspace extends StatefulWidget {
   final Future<void> Function() onPlay;
   final Future<void> Function() onStop;
   final Future<void> Function() onRecord;
-  final VoidCallback onClear;
 
   @override
   State<_TracksWorkspace> createState() => _TracksWorkspaceState();
@@ -747,6 +744,181 @@ class _TracksWorkspaceState extends State<_TracksWorkspace> {
       name: '${widget.instrument.label} ${session.project.tracks.length + 1}',
     );
   }
+  Future<String?> _askProjectName(
+    String title, {
+    String? initialValue,
+  }) async {
+    final controller = TextEditingController(
+      text: initialValue ?? session.project.name,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 48,
+            decoration: const InputDecoration(
+              labelText: '工程名称',
+              hintText: '例如：夜间草稿',
+            ),
+            onSubmitted: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isNotEmpty) Navigator.pop(dialogContext, trimmed);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final trimmed = controller.text.trim();
+                if (trimmed.isNotEmpty) {
+                  Navigator.pop(dialogContext, trimmed);
+                }
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _saveProject() async {
+    final name = await _askProjectName(
+      '保存工程',
+      initialValue: session.activeLibraryName ?? session.project.name,
+    );
+    if (name == null) return;
+    session.saveProjectAs(name);
+  }
+
+  Future<void> _newProject() async {
+    final name = await _askProjectName(
+      '新建工程',
+      initialValue: '新工程',
+    );
+    if (name == null) return;
+    session.newProject(
+      name: name,
+      tempo: session.project.tempo,
+    );
+    session.saveProjectAs(name);
+  }
+
+  Future<void> _renameProject() async {
+    final name = await _askProjectName(
+      '重命名工程',
+      initialValue: session.project.name,
+    );
+    if (name == null) return;
+    session.renameProject(name);
+  }
+
+  Future<void> _showProjectLibrary() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final names = session.savedProjectNames;
+            return SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.72,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          '工程库',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: '新建工程',
+                          onPressed: () async {
+                            Navigator.pop(sheetContext);
+                            await _newProject();
+                          },
+                          icon: const Icon(Icons.note_add_rounded),
+                        ),
+                        IconButton(
+                          tooltip: '保存当前工程',
+                          onPressed: () async {
+                            Navigator.pop(sheetContext);
+                            await _saveProject();
+                          },
+                          icon: const Icon(Icons.save_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (names.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text('还没有保存过工程。'),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                        itemCount: names.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: 6),
+                        itemBuilder: (context, index) {
+                          final name = names[index];
+                          final active = session.activeLibraryName == name;
+                          return ListTile(
+                            selected: active,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            leading: Icon(
+                              active
+                                  ? Icons.folder_open_rounded
+                                  : Icons.folder_rounded,
+                            ),
+                            title: Text(name),
+                            subtitle: active
+                                ? const Text('当前工程 · 自动保存中')
+                                : const Text('已保存工程'),
+                            onTap: () {
+                              final loaded = session.loadProject(name);
+                              if (loaded) Navigator.pop(sheetContext);
+                            },
+                            trailing: IconButton(
+                              tooltip: '删除已保存工程',
+                              onPressed: () {
+                                session.deleteSavedProject(name);
+                                setSheetState(() {});
+                              },
+                              icon: const Icon(Icons.delete_outline_rounded),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -802,6 +974,39 @@ class _TracksWorkspaceState extends State<_TracksWorkspace> {
                   },
                 ),
                 const Spacer(),
+                IconButton(
+                  tooltip: '工程库',
+                  onPressed: _showProjectLibrary,
+                  icon: const Icon(Icons.folder_open_rounded),
+                ),
+                IconButton(
+                  tooltip: '保存工程',
+                  onPressed: _saveProject,
+                  icon: const Icon(Icons.save_rounded),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: '工程操作',
+                  onSelected: (value) {
+                    if (value == 'new') _newProject();
+                    if (value == 'rename') _renameProject();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'new',
+                      child: ListTile(
+                        leading: Icon(Icons.note_add_rounded),
+                        title: Text('新建工程'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'rename',
+                      child: ListTile(
+                        leading: Icon(Icons.drive_file_rename_outline_rounded),
+                        title: Text('重命名工程'),
+                      ),
+                    ),
+                  ],
+                ),
                 IconButton(
                   tooltip: '撤销',
                   onPressed: session.canUndo ? session.undo : null,
@@ -1530,7 +1735,6 @@ class _MixerWorkspace extends StatelessWidget {
                 onMute: (value) => session.setTrackMute(track.id, value),
                 onSolo: (value) => session.setTrackSolo(track.id, value),
                 onVolume: (value) => session.setTrackVolume(track.id, value),
-                onPan: (value) => session.setTrackPan(track.id, value),
               ),
           ],
           const Divider(height: 26),
@@ -1549,7 +1753,6 @@ class _MixerTrackStrip extends StatelessWidget {
     required this.onMute,
     required this.onSolo,
     required this.onVolume,
-    required this.onPan,
   });
 
   final StudioTrack track;
@@ -1558,14 +1761,11 @@ class _MixerTrackStrip extends StatelessWidget {
   final ValueChanged<bool> onMute;
   final ValueChanged<bool> onSolo;
   final ValueChanged<double> onVolume;
-  final ValueChanged<double> onPan;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final instrument = _TouchInstrument.values.where(
-      (item) => item.name == track.instrumentId,
-    ).firstOrNull;
+    final instrument = _instrumentFromId(track.instrumentId);
 
     return Card(
       color: selected
@@ -1618,31 +1818,6 @@ class _MixerTrackStrip extends StatelessWidget {
                     width: 46,
                     child: Text(
                       '${(track.volume * 100).round()}%',
-                      textAlign: TextAlign.end,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const SizedBox(width: 36, child: Text('声像')),
-                  Expanded(
-                    child: Slider(
-                      min: -1,
-                      max: 1,
-                      divisions: 20,
-                      value: track.pan.clamp(-1.0, 1.0).toDouble(),
-                      onChanged: onPan,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 46,
-                    child: Text(
-                      track.pan.abs() < 0.05
-                          ? 'C'
-                          : track.pan < 0
-                              ? 'L${(track.pan.abs() * 100).round()}'
-                              : 'R${(track.pan * 100).round()}',
                       textAlign: TextAlign.end,
                     ),
                   ),
