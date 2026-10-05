@@ -99,15 +99,15 @@ class MenuLayout extends ConsumerWidget {
               bottom: ThemeConst.listViewBottomPadding,
             ),
             children: <Widget>[
-              const DividerTitle('Presets'),
+              const DividerTitle('场景预设'),
               const PresetButtons(
                 clickType: ClickType.tap,
                 row: true,
                 minimumSize: true,
               ),
               ListTile(
-                title: const Text('Show Preset Buttons'),
-                subtitle: const Text('DOUBLE TAP buttons to switch Presets'),
+                title: const Text('显示预设按钮'),
+                subtitle: const Text('双击按钮切换预设'),
                 trailing: Switch(
                   value: ref.watch(presetButtonsProv),
                   onChanged: (v) =>
@@ -123,26 +123,26 @@ class MenuLayout extends ConsumerWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Palette.laserLemon,
                     ),
-                    child: const Text('Reset Preset'),
+                    child: const Text('重置当前预设'),
                     onPressed: () {
                       showDialog<String>(
                         context: context,
                         builder: (BuildContext context) => AlertDialog(
-                          title: const Text('Reset'),
+                          title: const Text('重置'),
                           content: const Text(
-                            'Return current Preset to the default values?',
+                            '将当前预设恢复为默认值？',
                           ),
                           actions: <Widget>[
                             TextButton(
                               onPressed: () => Navigator.pop(context, 'Cancel'),
-                              child: const Text('Cancel'),
+                              child: const Text('取消'),
                             ),
                             TextButton(
                               onPressed: () {
                                 Navigator.pop(context, 'OK');
                                 ref.read(resetAllProv.notifier).resetAll();
                               },
-                              child: const Text('OK'),
+                              child: const Text('确定'),
                             ),
                           ],
                         ),
@@ -152,13 +152,13 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               /////////////////////////////////////
-              const DividerTitle('Layout'),
+              const DividerTitle('布局'),
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 color: Palette.darkGrey,
                 child: ListTile(
                   title: const Text(
-                    'Layout',
+                    '布局',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   trailing: dropdownLayout,
@@ -166,15 +166,15 @@ class MenuLayout extends ConsumerWidget {
               ),
               if (ref.watch(layoutProv) == Layout.progrChange)
                 ListTile(
-                  title: const Text('Base Program'),
-                  subtitle: const Text('Lowest Program on the Grid'),
+                  title: const Text('起始 Program'),
+                  subtitle: const Text('网格左下角的最低 Program 编号'),
                   trailing: dropdownProgram,
                 ),
               if (resizableGrid && ref.watch(layoutProv).custom)
                 IntCounterTile(
                   label: ref.watch(layoutProv) == Layout.scaleNotesCustom
-                      ? 'X: Scale Steps'
-                      : 'X: Semitones',
+                      ? 'X：音阶级数'
+                      : 'X：半音数',
                   setValue: (int v) =>
                       ref.read(customIntervalXProv.notifier).setAndSave(v),
                   readValue: ref.watch(customIntervalXProv),
@@ -182,46 +182,46 @@ class MenuLayout extends ConsumerWidget {
               if (resizableGrid && ref.watch(layoutProv).custom)
                 IntCounterTile(
                   label: ref.watch(layoutProv) == Layout.scaleNotesCustom
-                      ? 'Y: Scale Steps'
-                      : 'Y: Semitones',
+                      ? 'Y：音阶级数'
+                      : 'Y：半音数',
                   setValue: (int v) =>
                       ref.read(customIntervalYProv.notifier).setAndSave(v),
                   readValue: ref.watch(customIntervalYProv),
                 ),
-              if (resizableGrid) const DividerTitle('Size'),
+              if (resizableGrid) const DividerTitle('网格尺寸'),
               if (resizableGrid)
                 IntCounterTile(
-                  label: 'Width',
+                  label: '宽度',
                   setValue: (int v) =>
                       ref.read(widthProv.notifier).setAndSave(v),
                   readValue: ref.watch(widthProv),
                 ),
               if (resizableGrid)
                 IntCounterTile(
-                  label: 'Height',
+                  label: '高度',
                   setValue: (int v) =>
                       ref.read(heightProv.notifier).setAndSave(v),
                   readValue: ref.watch(heightProv),
                 ),
               if (resizableGrid && ref.watch(layoutProv) != Layout.progrChange)
-                const DividerTitle('Scale'),
+                const DividerTitle('音阶'),
               if (resizableGrid && ref.watch(layoutProv) != Layout.progrChange)
-                ListTile(title: const Text('Scale'), trailing: dropdownScale),
+                ListTile(title: const Text('音阶'), trailing: dropdownScale),
               if (resizableGrid && ref.watch(layoutProv) != Layout.progrChange)
                 ListTile(
-                  title: const Text('Root Note'),
-                  subtitle: const Text('Root Note of the selected scale'),
+                  title: const Text('根音'),
+                  subtitle: const Text('所选音阶的根音'),
                   trailing: dropdownRootNote,
                 ),
               if (resizableGrid && ref.watch(layoutProv) != Layout.progrChange)
                 ListTile(
-                  title: const Text('Base Note'),
-                  subtitle: const Text('Lowest Note on the bottom left'),
+                  title: const Text('起始音符'),
+                  subtitle: const Text('网格左下角的最低音符'),
                   trailing: dropdownBaseNote,
                 ),
               if (resizableGrid && ref.watch(layoutProv) != Layout.progrChange)
                 IntCounterTile(
-                  label: 'Octave',
+                  label: '八度',
                   modDisplay: (v) => '${v - 2}',
                   readValue: ref.watch(baseOctaveProv),
                   setValue: (int v) =>
@@ -229,12 +229,12 @@ class MenuLayout extends ConsumerWidget {
                   resetFunction: ref.read(baseOctaveProv.notifier).reset,
                 ),
               /////////////////////////////////////
-              const DividerTitle('Controls'),
+              const DividerTitle('演奏控制'),
               if (resizableGrid)
                 ListTile(
-                  title: const Text('Octave Buttons'),
+                  title: const Text('八度按钮'),
                   subtitle: const Text(
-                    'Adds Octave control buttons next to pads',
+                    '在鼓垫旁显示八度升降按钮',
                   ),
                   trailing: Switch(
                     value: ref.watch(octaveButtonsProv),
@@ -243,9 +243,9 @@ class MenuLayout extends ConsumerWidget {
                   ),
                 ),
               ListTile(
-                title: const Text('Sustain Button'),
+                title: const Text('延音按钮'),
                 subtitle: const Text(
-                  'Adds a Sustain button next to pads. Lock ON by double-tapping',
+                  '在鼓垫旁显示延音按钮；双击可锁定延音',
                 ),
                 trailing: Switch(
                   value: ref.watch(sustainButtonProv),
@@ -254,8 +254,8 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               ListTile(
-                title: const Text('Velocity'),
-                subtitle: const Text('Adds Velocity Slider next to pads'),
+                title: const Text('力度'),
+                subtitle: const Text('在鼓垫旁显示力度滑杆'),
                 trailing: Switch(
                   value: ref.watch(velocitySliderProv),
                   onChanged: (bool v) =>
@@ -263,8 +263,8 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               ListTile(
-                title: const Text('Mod Wheel'),
-                subtitle: const Text('Adds Mod Wheel Slider next to pads'),
+                title: const Text('调制轮'),
+                subtitle: const Text('在鼓垫旁显示调制轮滑杆'),
                 trailing: Switch(
                   value: ref.watch<bool>(modWheelProv),
                   onChanged: (bool v) =>
@@ -272,8 +272,8 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               ListTile(
-                title: const Text('Pitch Bend'),
-                subtitle: const Text('Adds Pitch Bend slider next to pads'),
+                title: const Text('弯音'),
+                subtitle: const Text('在鼓垫旁显示弯音滑杆'),
                 trailing: Switch(
                   value: ref.watch(pitchBendProv),
                   onChanged: (bool v) =>
@@ -284,9 +284,9 @@ class MenuLayout extends ConsumerWidget {
                 ColoredBox(
                   color: Palette.dirtyTranslucent,
                   child: NonLinearSliderTile(
-                    label: 'Pitch Bend Return',
+                    label: '弯音回中',
                     subtitle:
-                        'Set time in milliseconds for Pitch Bend Slider to ease back to Zero',
+                        '设置松手后弯音滑杆平滑回到中心的时间',
                     readValue: ref.watch(pitchBendEaseStepProv),
                     setValue: (int v) =>
                         ref.read(pitchBendEaseStepProv.notifier).set(v),
@@ -294,7 +294,7 @@ class MenuLayout extends ConsumerWidget {
                         .read(pitchBendEaseStepProv.notifier)
                         .reset,
                     displayValue: ref.watch(pitchBendEaseUsable) == 0
-                        ? 'Off'
+                        ? '关闭'
                         : ref.watch(pitchBendEaseUsable) < 1000
                         ? '${ref.watch(pitchBendEaseUsable)} ms'
                         : '${ref.watch(pitchBendEaseUsable) / 1000} s',
@@ -303,10 +303,10 @@ class MenuLayout extends ConsumerWidget {
                   ),
                 ),
               /////////////////////////////////////
-              const DividerTitle('Display'),
+              const DividerTitle('显示'),
               ListTile(
-                title: const Text('Color Mode'),
-                subtitle: const Text('How the Color Wheel is used'),
+                title: const Text('配色模式'),
+                subtitle: const Text('设置色轮如何映射到音符'),
                 trailing: DropdownEnum<PadColors>(
                   values: PadColors.values,
                   readValue: ref.watch(padColorsProv),
@@ -317,9 +317,9 @@ class MenuLayout extends ConsumerWidget {
               if (ref.watch(padColorsProv) != PadColors.pianoKeys &&
                   ref.watch(padColorsProv) != PadColors.neutral)
                 IntSliderTile(
-                  label: 'Base Color',
+                  label: '基准颜色',
                   max: 360,
-                  subtitle: 'Rotate the color wheel',
+                  subtitle: '旋转整体色轮',
                   trailing: ref.watch(baseHueProv).toString(),
                   readValue: ref.watch(baseHueProv),
                   setValue: (int v) => ref.read(baseHueProv.notifier).set(v),
@@ -327,9 +327,9 @@ class MenuLayout extends ConsumerWidget {
                   onChangeEnd: ref.read(baseHueProv.notifier).save,
                 ),
               ListTile(
-                title: const Text('Pad Labels'),
+                title: const Text('鼓垫标签'),
                 subtitle: const Text(
-                  'Choose between Midi values and Note names',
+                  '选择显示 MIDI 数值或音名',
                 ),
                 trailing: DropdownEnum<PadLabels>(
                   values: PadLabels.values,
@@ -339,9 +339,9 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               ListTile(
-                title: const Text('GM Perc Names'),
+                title: const Text('GM 打击乐名称'),
                 subtitle: const Text(
-                  'Show standard General Midi percussion names on pads',
+                  '在鼓垫上显示 General MIDI 标准打击乐名称',
                 ),
                 trailing: Switch(
                   value: ref.watch(gmLabelsProv),
@@ -350,9 +350,9 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               ListTile(
-                title: const Text('Show Velocity'),
+                title: const Text('显示力度反馈'),
                 subtitle: const Text(
-                  'Show visual feedback on the pad indicating the sent Velocity',
+                  '在鼓垫上可视化显示实际发送的力度',
                 ),
                 trailing: Switch(
                   value: ref.watch(velocityVisualProv),
@@ -362,9 +362,9 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               /////////////////////////////////////
-              const DividerTitle('Orientation'),
+              const DividerTitle('方向'),
               ListTile(
-                title: const Text('Flip Horizontally'),
+                title: const Text('水平翻转'),
                 // subtitle: const Text('Mirror'),
                 trailing: Switch(
                   value: ref.watch(flipLayoutHorizontalProv),
@@ -373,18 +373,18 @@ class MenuLayout extends ConsumerWidget {
                 ),
               ),
               ListTile(
-                title: const Text('Flip Vertically'),
+                title: const Text('垂直翻转'),
                 trailing: Switch(
                   value: ref.watch(flipLayoutVerticalProv),
                   onChanged: (bool v) =>
                       ref.read(flipLayoutVerticalProv.notifier).setAndSave(v),
                 ),
               ),
-              const DividerTitle('Experimental'),
+              const DividerTitle('实验功能'),
               ListTile(
-                title: const Text('Triad Circles'),
+                title: const Text('三和弦圆'),
                 subtitle: const Text(
-                  'Best with western modal scales (see PrimeChords.com)',
+                  '更适合西方调式音阶',
                 ),
                 trailing: Switch(
                   value: ref.watch(triadCirclesProv),
