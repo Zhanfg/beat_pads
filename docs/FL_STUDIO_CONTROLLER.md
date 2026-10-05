@@ -1,47 +1,41 @@
-# FL Studio Companion · Touch Instruments
+# FL Studio Companion · AXYP Touch Instruments
 
-This branch adds a dedicated low-latency performance surface on top of Midi Poly Grid's existing MIDI stack.
+当前分支已经从原 Midi Poly Grid 的旧 Grid/MPE UI 重构为独立的移动乐器工作台。主运行链只保留实际在产品里使用的本地音频、MIDI 设备、触控输入、持久设置与 AXYP 协议模块。
 
-## What is included
+## 1.6.0 多点触控与核心现代化
 
-- 25-note multi-touch chromatic keyboard with octave shifting
-- 4x4 FPC/drum pad bank with 16-note bank shifting
-- Pitch bend, modulation wheel and sustain controls
-- MIDI panic / all-notes-off
-- Connected MIDI-device status
-- Five learnable transport controls for FL Studio
-- Existing USB/Bluetooth MIDI device drawer remains available
-- Material 3 performance deck with adaptive dark color system
-- Five persistent scenes backed by the existing preset system
-- Scale Lock with Chromatic, Major, Minor, Dorian and Minor Pentatonic modes
-- Hardware-pressure Velocity mapping with safe fixed-Velocity fallback
-- Two-axis XY control with user-editable X/Y CC assignments
-- Four user-editable MIDI CC macro controls for FL Studio Link to controller
+- 键盘改为单一 raw-pointer 触控画布，按 `pointerId` 独立追踪每根手指。
+- 支持真正的同时按键/和弦；一根手指滑奏不会影响其他仍按住的音。
+- 同一个音被多个手指持有时使用引用计数，最后一根手指离开才发送 Note Off。
+- 吉他、贝斯、鼓垫、智能和弦也统一携带真实 pointerId。
+- 新增 **AXYP/1（Axymorrsen eXtensible Performance Protocol）**：UI 不再直接散发 MIDI，而是先发布统一性能事件，再由 Router 分发到 MIDI、本地音频及未来扩展端。
+- AXYP/1 使用固定 magic/version、sequence、微秒时间戳、pointerId、channel、payload length 和类型化 payload；已支持 encode/decode。
+- 应用启动路径彻底删除 SplashScreen/Rive/doggo，初始化完偏好后直接进入主页面。
+- 删除旧 Beat Pads、旧菜单、旧 MPE/Modulation/PlayMode/MidiSender 等不再进入运行图的代码。
+- `services.dart` 收缩为当前运行时 API；MIDI 状态只保留实际使用的通道和力度。
+- 旧占位 ASCII 测试替换为多点触控和 AXYP 协议单元测试。
+- AXYP 详细规范见 `docs/AXYP_PROTOCOL.md`。
 
-## FL Studio setup
+## 当前运行架构
 
-1. Connect the Android device by USB MIDI or another MIDI transport supported by the app.
-2. In FL Studio, open **Options > MIDI settings**.
-3. Enable the input exposed by the phone/MIDI bridge.
-4. Use the keyboard and drum pads as normal note input.
-5. For transport controls, map these momentary CC messages once in FL Studio:
+`Touch Surface → MultiTouchNoteRouter → AXYP PerformanceRouter → Local Audio + MIDI`
 
-| Control | CC |
+生成型乐器（琶音器、智能鼓机、步进音序器）也进入同一个 PerformanceRouter，但使用 pointerId = -1。MIDI 现在只是 AXYP 的一个输出适配器，不再是内部事件模型本身。
+
+## FL Studio 连接
+
+Android 设备可以继续通过 USB MIDI / BLE MIDI 等方式连接 FL Studio。本地发声与外部 MIDI 完全独立：不连接电脑时可作为独立乐器使用，连接后可同时本机监听并发送 MIDI。
+
+Transport 默认映射仍为：
+
+| 控制 | CC |
 | --- | ---: |
-| Record | 110 |
-| Play | 111 |
-| Stop | 112 |
-| Loop | 113 |
-| Metronome | 114 |
-| Go to Beginning | 115 |
-
-The controller sends value 127 on press and 0 shortly after release/trigger.
-
-## Design notes
-
-The FL Studio workspace intentionally reuses the existing `flutter_midi_command` send path rather than adding a parallel transport layer. That keeps note, pitch, CC and sustain traffic on the same tested path as the existing pad/MPE modes and avoids additional buffering.
-
-The existing Midi Poly Grid workflow remains unchanged. The FL Studio screen is an additive workspace reachable from the piano icon in the main menu.
+| 录制 | 110 |
+| 播放 | 111 |
+| 停止 | 112 |
+| 循环 | 113 |
+| 节拍器 | 114 |
+| 回到开头 | 115 |
 
 ## 1.5.0 独立发声与横屏交互重构
 
@@ -99,7 +93,6 @@ The XY pad defaults to CC74/CC71 and the four macro controls default to CC20–C
 
 ## Next implementation targets
 
-- glissando pointer hand-off across piano keys
 - optional chord/voicing layer
 - Mackie/transport protocol experiment behind an opt-in setting
 - MIDI receive feedback for motor-style macro state
