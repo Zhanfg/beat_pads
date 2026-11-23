@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:beat_pads/services/state/settings_fl_studio.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
+import 'local_synth_startup.dart';
+
 /// Low-latency local monitor that is independent from MIDI connectivity.
 ///
 /// The output-device lifecycle is explicit. Recent flutter_soloud versions may
@@ -15,9 +17,8 @@ final class LocalSynth {
   static final LocalSynth instance = LocalSynth._();
 
   final SoLoud _engine = SoLoud.instance;
-  final Map<(int, int), List<SoundHandle>> _active =
-      <(int, int), List<SoundHandle>>{};
-  final Set<(int, int)> _sustainedVoices = <(int, int)>{};
+  final Map<(int, int, bool), List<SoundHandle>> _active = {};
+  final LocalSynthStartup _startup = LocalSynthStartup();
 
   AudioSource? _tonalSource;
   AudioSource? _drumSource;
@@ -25,7 +26,6 @@ final class LocalSynth {
   Future<void>? _deviceStarting;
 
   bool _enabled = true;
-  bool _sustain = false;
   double _bend = 0;
   double _master = 0.68;
   FlLocalTone _tone = FlLocalTone.warm;
@@ -151,10 +151,22 @@ final class LocalSynth {
   }) async {
     if (!_enabled) return;
 
-    await ensureReady();
-    await _ensureDeviceStarted();
-
     final note = midiNote.clamp(0, 127).toInt();
+    final voice = (voiceId, note);
+    await _startup.start(
+      voice,
+      percussive: percussive,
+      ready: () async {
+        await ensureReady();
+        await _ensureDeviceStarted();
+      },
+      release: _releaseVoice,
+      play: () => _play(voice, velocity, percussive: percussive),
+    );
+  }
+
+  void _play((int, int) voice, int velocity, {required bool percussive}) {
+    final note = voice.$2;
     final vel = velocity.clamp(1, 127).toInt();
     final source = percussive ? _drumSource : _tonalSource;
     if (source == null) return;
@@ -173,8 +185,8 @@ final class LocalSynth {
 
     if (!_engine.getIsValidVoiceHandle(handle)) return;
 
-    final voice = (voiceId, note);
-    _active.putIfAbsent(voice, () => <SoundHandle>[]).add(handle);
+    final activeVoice = (voice.$1, note, percussive);
+    _active.putIfAbsent(activeVoice, () => <SoundHandle>[]).add(handle);
     _engine.fadeVolume(
       handle,
       targetVolume,
@@ -190,31 +202,17 @@ final class LocalSynth {
       _engine.scheduleStop(handle, const Duration(milliseconds: 155));
       Timer(
         const Duration(milliseconds: 170),
-        () => _forget(voice, handle),
+        () => _forget(activeVoice, handle),
       );
     }
   }
 
   void noteOff(int midiNote, {int voiceId = -1}) {
     final note = midiNote.clamp(0, 127).toInt();
-    final voice = (voiceId, note);
-    if (_sustain) {
-      _sustainedVoices.add(voice);
-      return;
-    }
-    _releaseVoice(voice);
+    _startup.noteOff((voiceId, note), _releaseVoice);
   }
 
-  void setSustain(bool enabled) {
-    _sustain = enabled;
-    if (!enabled) {
-      final voices = _sustainedVoices.toList(growable: false);
-      _sustainedVoices.clear();
-      for (final voice in voices) {
-        _releaseVoice(voice);
-      }
-    }
-  }
+  void setSustain(bool enabled) => _startup.setSustain(enabled, _releaseVoice);
 
   void setPitchBend(double bend) {
     _bend = bend.clamp(-1.0, 1.0);
@@ -230,7 +228,8 @@ final class LocalSynth {
   }
 
   void _releaseVoice((int, int) voice) {
-    final handles = _active.remove(voice);
+    // One-shots finish their own envelope regardless of key release.
+    final handles = _active.remove((voice.$1, voice.$2, false));
     if (handles == null) return;
 
     for (final handle in handles) {
@@ -240,7 +239,7 @@ final class LocalSynth {
     }
   }
 
-  void _forget((int, int) voice, SoundHandle handle) {
+  void _forget((int, int, bool) voice, SoundHandle handle) {
     final handles = _active[voice];
     if (handles == null) return;
     handles.remove(handle);
@@ -248,7 +247,7 @@ final class LocalSynth {
   }
 
   void panic() {
-    _sustainedVoices.clear();
+    _startup.panic();
     _active.clear();
     if (_engine.isInitialized) {
       _engine.stopAll();
