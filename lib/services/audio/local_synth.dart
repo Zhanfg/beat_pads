@@ -12,11 +12,12 @@ import 'local_synth_startup.dart';
 /// stop an idle output device; on Android that can otherwise leave valid voices
 /// queued behind a stopped/busy audio HAL.
 final class LocalSynth {
-  LocalSynth._();
+  /// Creates an isolated synth with the given output engine.
+  LocalSynth.withEngine(SoLoud engine) : _engine = engine;
 
-  static final LocalSynth instance = LocalSynth._();
+  static final LocalSynth instance = LocalSynth.withEngine(SoLoud.instance);
 
-  final SoLoud _engine = SoLoud.instance;
+  final SoLoud _engine;
   final Map<(int, int, bool), List<SoundHandle>> _active = {};
   final LocalSynthStartup _startup = LocalSynthStartup();
 
